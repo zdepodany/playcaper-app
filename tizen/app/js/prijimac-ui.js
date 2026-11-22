@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Prevzaté z PlayCaption (webos/app/receiver-ui.js, © Adam Růžička) skriptom tizen/sync.py. Zmena: trimEnd nahradený regulárnym výrazom kvôli starším Samsung TV. Neupravovať ručne. */
+/* Prevzaté z PlayCaption (webos/app/receiver-ui.js, © Adam Růžička) skriptom tizen/sync.py. Bez zmien (staršie prehliadače rieši už LG zdroj). Neupravovať ručne. */
 (function () {
     "use strict";
     window.PlayCaptionReceiverUI = function (document) {
@@ -185,6 +185,7 @@
 
         this.tick = function (now) {
             if (captionPacket && (!storyMode || !storyPaused) && now < captionUntil && now >= captionNext) {
+                // webOS 4.x (Chromium 53) nemá String.prototype.trimEnd.
                 if (captionOffset < captionPacket.text.replace(/\s+$/, "").length) nextCaption(now);
                 else if (storyMode) { storyDone = true; captionPacket = null; subtitle.hidden = true; }
             }

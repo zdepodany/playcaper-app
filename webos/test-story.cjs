@@ -62,4 +62,19 @@ timed.tick(firstMs);assert.notEqual(sub.textContent,first);
 const secondMs=Math.ceil(Math.max(1500,Math.ceil(Array.from(sub.textContent).length*1000/18))*.4);
 const second=sub.textContent;timed.tick(firstMs+secondMs-1);assert.equal(sub.textContent,second);assert.equal(sub.hidden,false);
 timed.tick(firstMs+secondMs);assert.ok(sub.hidden||sub.textContent!==second);
-console.log('OK: Story stránky/časování, procenta, živá změna bez restartu stránky, ACK, pauza/obnova a Standardní parser.');
+// webOS 4.x (např. LG 43UK6300, webOS 4.4) má Chromium 53 a Node.js 8.12.
+// Novější API by tam vyhodilo TypeError; UI proto musí běžet i bez nich.
+const legacyContext=vm.createContext({window:{}});
+vm.runInContext(`for (const [o,k] of [[String.prototype,'trimEnd'],[String.prototype,'trimStart'],[String.prototype,'padStart'],[String.prototype,'padEnd'],
+ [String.prototype,'replaceAll'],[String.prototype,'matchAll'],[Array.prototype,'flat'],[Array.prototype,'flatMap'],[Array.prototype,'at'],
+ [Object,'values'],[Object,'entries'],[Object,'fromEntries']]) delete o[k];`,legacyContext);
+vm.runInContext(fs.readFileSync(__dirname+'/app/receiver-ui.js','utf8'),legacyContext);
+const legacy=new legacyContext.window.PlayCaptionReceiverUI(document);
+legacy.caption(parse(Buffer.from('PCT1\t1\t60000\t'+'Slovo '.repeat(20)+'konec.   \t\t0.5\t0.91\t0.8\t1')),0);
+for(let t=0;t<60000&&!/konec\./.test(sub.textContent);t+=250)legacy.tick(t);
+assert.match(sub.textContent,/konec\./);
+for(const file of ['app/app.js','app/receiver-ui.js','service/service.js','service/protocol.js','service/switch-input.js','service/keepalive.js']){
+    const code=fs.readFileSync(__dirname+'/'+file,'utf8').replace(/\/\/.*$/gm,'');
+    assert.doesNotMatch(code,/\.(trimEnd|trimStart|padStart|padEnd|replaceAll|matchAll|flat|flatMap|at)\(|Object\.(values|entries|fromEntries)\(|\?\.|\?\?|=>|`|\basync\b|\bawait\b|\b(let|const|class)\s/,file+': syntaxe/API mimo Chromium 53 / Node 8');
+}
+console.log('OK: kompatibilita webOS 4.x, Story stránky/časování, procenta, živá změna bez restartu stránky, ACK, pauza/obnova a Standardní parser.');

@@ -184,7 +184,8 @@
 
         this.tick = function (now) {
             if (captionPacket && (!storyMode || !storyPaused) && now < captionUntil && now >= captionNext) {
-                if (captionOffset < captionPacket.text.trimEnd().length) nextCaption(now);
+                // webOS 4.x (Chromium 53) nemá String.prototype.trimEnd.
+                if (captionOffset < captionPacket.text.replace(/\s+$/, "").length) nextCaption(now);
                 else if (storyMode) { storyDone = true; captionPacket = null; subtitle.hidden = true; }
             }
             if (now >= choicesUntil) choices.hidden = true;

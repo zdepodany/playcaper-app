@@ -4,9 +4,14 @@ var Service = require("webos-service");
 var dgram = require("dgram");
 var os = require("os");
 var crypto = require("crypto");
-var parse = require("./protocol").parse;
+var protocol = require("./protocol");
+var parse = protocol.parse;
+var toBuffer = protocol.toBuffer;
 var service = new Service(require("./package.json").name);
 require("./switch-input").register(service);
+var keepAlive = require("./keepalive").create({ notify: function (event) {
+    notify({ returnValue: true, keepAlive: event.state, clientKey: event.clientKey, errorText: event.errorText });
+} });
 var subscriptions = {};
 var socket = null;
 var announceTimer = null;
@@ -18,6 +23,11 @@ var announcement = null;
 var sender = null;
 var senderSeen = 0;
 var rejectedAt = 0;
+
+// Node.js 0.12 (webOS TV 4.x) zná pouze send(buffer, offset, length, port, adresa, callback).
+function send(target, buffer, port, address, callback) {
+    target.send(buffer, 0, buffer.length, port, address, callback);
+}
 
 function notify(payload) {
     Object.keys(subscriptions).forEach(function (key) { subscriptions[key].respond(payload); });
@@ -33,6 +43,7 @@ function stop() {
     sender = null;
     senderSeen = 0;
     rejectedAt = 0;
+    keepAlive.stop();
     if (socket) { try { socket.close(); } catch (error) {} }
     socket = null;
 }
@@ -61,10 +72,10 @@ function start() {
         var changed = receiverName !== name || networkReady !== (addresses.length > 0);
         receiverName = name;
         networkReady = addresses.length > 0;
-        announcement = Buffer.from("PLAYCAPTION_TV\tlg-" + id + "\t" + receiverName + "\t0", "utf8");
+        announcement = toBuffer("PLAYCAPTION_TV\tlg-" + id + "\t" + receiverName + "\t0");
         if (changed) notify({ returnValue:true, ready:ready, networkReady:networkReady, name:receiverName });
         addresses.forEach(function (address) {
-            receiver.send(announcement, 41988, address, function (error) {
+            send(receiver, announcement, 41988, address, function (error) {
                 if (error) console.error("PlayCaption discovery:", error.code);
             });
         });
@@ -78,7 +89,7 @@ function start() {
         if (socket !== receiver) return;
         var query = buffer.length === 49 && /^PLAYCAPTION_FIND\t([a-f0-9]{32})$/.exec(buffer.toString("utf8"));
         if (query && ready && announcement) {
-            receiver.send(Buffer.concat([announcement, Buffer.from("\t" + query[1])]), remote.port, remote.address, function () {});
+            send(receiver, Buffer.concat([announcement, toBuffer("\t" + query[1])]), remote.port, remote.address, function () {});
             return;
         }
         var packet = parse(buffer);
@@ -93,7 +104,7 @@ function start() {
             return;
         }
         if (packet.kind === "storyQuery") {
-            receiver.send(Buffer.from("PCA1\t" + packet.id + "\tready"), remote.port, remote.address, function () {});
+            send(receiver, toBuffer("PCA1\t" + packet.id + "\tready"), remote.port, remote.address, function () {});
             return;
         }
         if (sender !== remote.address) storyPeer = null;
@@ -125,12 +136,19 @@ service.register("listen", function (message) {
     if (Object.keys(subscriptions).length === 0) stop();
 });
 
+// UI ho volá jen tam, kde LG odmítne restartUserActivityTimer (webOS 3.x/4.x).
+service.register("remoteKeepAlive", function (message) {
+    if (!socket) { message.respond({ returnValue: false, errorText: "Příjem neběží." }); return; }
+    keepAlive.start((message.payload || {}).clientKey);
+    message.respond({ returnValue: true });
+});
+
 service.register("storyAck", function (message) {
     var p = message.payload || {};
     if (!socket || !storyPeer || p.id !== storyPeer.id || ["reading", "done"].indexOf(p.state) < 0) {
         message.respond({returnValue:false}); return;
     }
-    socket.send(Buffer.from("PCA1\t" + p.id + "\t" + p.state), storyPeer.port, storyPeer.address, function (error) {
+    send(socket, toBuffer("PCA1\t" + p.id + "\t" + p.state), storyPeer.port, storyPeer.address, function (error) {
         message.respond({returnValue:!error});
     });
 });

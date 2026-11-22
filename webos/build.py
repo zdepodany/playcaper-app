@@ -83,9 +83,9 @@ def main():
     service = json.loads((HERE / "service/package.json").read_text(encoding="utf8"))
     assert app["version"] == service["version"], "Nesouhlasí verze UI a služby"
     assert service["name"] == app["id"] + ".receiver", "Nesouhlasí ID služby"
-    for test in ["test.cjs", "test-udp.cjs", "test-input.cjs", "test-receiver.cjs", "test-controls.cjs", "test-story.cjs"]:
+    for test in ["test.cjs", "test-udp.cjs", "test-input.cjs", "test-receiver.cjs", "test-controls.cjs", "test-story.cjs", "test-keepalive.cjs"]:
         subprocess.run(["node", test], cwd=HERE, check=True)
-    for source in ["app/app.js", "app/receiver-ui.js", "service/protocol.js", "service/service.js", "service/switch-input.js"]:
+    for source in ["app/app.js", "app/receiver-ui.js", "service/protocol.js", "service/service.js", "service/switch-input.js", "service/keepalive.js"]:
         subprocess.run(["node", "--check", source], cwd=HERE, check=True)
     (HERE / "dist").mkdir(exist_ok=True)
     # Pevný příkaz bez interpolace vstupu; shell podporuje také npx.cmd na Windows.
@@ -104,7 +104,7 @@ def main():
                 "file": ipk.name, "size": ipk.stat().st_size, "sha256": hashlib.sha256(ipk.read_bytes()).hexdigest(),
                 "protocols": ["PCT1", "PCV1", "PCO1", "PCQ1", "PCS1", "PCA1"], "story": True,
                 "capabilities": ["subtitles", "hint", "layout", "speaker-colors", "choices", "text",
-                                 "choice-frame", "ocr-frame", "controls", "local-test", "sender-lease", "story-pages", "story-ack", "story-timing", "direct-discovery"]}
+                                 "choice-frame", "ocr-frame", "controls", "local-test", "sender-lease", "story-pages", "story-ack", "story-timing", "direct-discovery", "remote-keepalive"]}
     manifest_data = (json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf8")
     (HERE / "dist/receiver-manifest.json").write_bytes(manifest_data)
     files = {ipk.name: ipk.read_bytes(), "LICENSE": (ROOT / "LICENSE").read_bytes()}
@@ -114,7 +114,7 @@ def main():
     files["INSTALACE-Z-ANDROIDU.md"] = (HERE / "INSTALACE-Z-ANDROIDU.md").read_bytes()
     files["source/LICENSE"] = (ROOT / "LICENSE").read_bytes()
     files["source/BACKLOG.md"] = (ROOT / "BACKLOG.md").read_bytes()
-    sources = ["README.md", "NAVOD-LG.md", "TESTOVANI.md", "SHODA-ANDROID.md", "INSTALACE-Z-ANDROIDU.md", "test.cjs", "test-udp.cjs", "test-input.cjs", "test-receiver.cjs", "test-controls.cjs", "test-story.cjs", "build.py", "test_build.py"]
+    sources = ["README.md", "NAVOD-LG.md", "TESTOVANI.md", "SHODA-ANDROID.md", "INSTALACE-Z-ANDROIDU.md", "test.cjs", "test-udp.cjs", "test-input.cjs", "test-receiver.cjs", "test-controls.cjs", "test-story.cjs", "test-keepalive.cjs", "build.py", "test_build.py"]
     # as_posix: na Windows by relative_to dalo "app\\app.js" a název v ZIPu by nesouhlasil
     sources += [p.relative_to(HERE).as_posix() for folder in ["app", "service"] for p in sorted((HERE / folder).iterdir())]
     for name in sources:

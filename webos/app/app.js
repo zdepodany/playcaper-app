@@ -12,6 +12,9 @@
     var bridge = null;
     var activityBridge = null;
     var activityWarning = "";
+    // Starší LG (webOS 3.x/4.x) neumí restartUserActivityTimer; služba pak simuluje tlačítko ovladače.
+    var remoteState = "";
+    var remoteBridge = null;
     var protocolWarning = "";
     var statusText = "";
     var lastActivity = 0;
@@ -210,6 +213,12 @@
             activityBridge.cancel();
             activityBridge = null;
         }
+        if (remoteBridge) {
+            remoteBridge.onservicecallback = function () {};
+            remoteBridge.cancel();
+            remoteBridge = null;
+        }
+        remoteState = "";
         if (bridge) {
             bridge.onservicecallback = function () {};
             bridge.cancel();
@@ -232,14 +241,51 @@
             if (activityBridge !== request) return;
             var result;
             try { result = JSON.parse(raw); } catch (error) { result = {}; }
-            activityWarning = result && result.returnValue === true ? "" :
-                "PlayCaption · LG odmítá prodloužení překryvu, může se po 2 minutách zavřít.";
-            status.textContent = activityWarning || protocolWarning || statusText;
-            status.hidden = !activityWarning && !protocolWarning && Boolean(lastSeen);
             activityBridge = null;
+            if (result && result.returnValue === true) activityWarning = "";
+            else {
+                if (!remoteState) startRemoteKeepAlive();
+                activityWarning = remoteWarning();
+            }
+            refreshWarning();
         };
         // LG zavírá nečinný overlay po 120 s, i když se jeho text průběžně mění.
         request.call("luna://com.webos.surfacemanager.screenSaver/restartUserActivityTimer", "{}");
+    }
+
+    function refreshWarning() {
+        status.textContent = activityWarning || protocolWarning || statusText;
+        status.hidden = !activityWarning && !protocolWarning && Boolean(lastSeen);
+        updateInfo(Date.now());
+    }
+
+    function remoteWarning() {
+        if (remoteState === "active") return "";
+        if (remoteState === "pairing") return "PlayCaption LG · Na TV potvrď ovladačem dotaz na připojení zařízení. Jinak se titulky po 2 minutách zavřou.";
+        if (remoteState === "failed-permanent") return "PlayCaption LG · Připojení bylo odmítnuto, titulky se po 2 minutách bez stisku ovladače zavřou. Pro nový dotaz aplikaci znovu spusť.";
+        return "PlayCaption · LG odmítá prodloužení překryvu, může se po 2 minutách zavřít.";
+    }
+
+    function startRemoteKeepAlive() {
+        var saved = "";
+        try { saved = localStorage.getItem("playcaption-remote-key") || ""; } catch (error) {}
+        remoteState = "starting";
+        var request = new PalmServiceBridge();
+        remoteBridge = request;
+        request.onservicecallback = function () { if (remoteBridge === request) remoteBridge = null; };
+        request.call("luna://cz.playcaption.overlaytest.receiver/remoteKeepAlive", JSON.stringify({ clientKey: saved }));
+    }
+
+    function remoteEvent(result) {
+        if (result.keepAlive === "active") {
+            if (typeof result.clientKey === "string") {
+                try { localStorage.setItem("playcaption-remote-key", result.clientKey); } catch (error) {}
+            }
+            remoteState = "active";
+        } else if (result.keepAlive === "pairing") remoteState = "pairing";
+        else if (result.keepAlive === "failed") remoteState = /odmítnuto/.test(result.errorText || "") ? "failed-permanent" : "failed";
+        if (remoteState) activityWarning = remoteWarning();
+        refreshWarning();
     }
 
     var ackBridge = null;
@@ -274,6 +320,7 @@
             showStatus(statusText); updateInfo(Date.now()); return;
         }
         if (result.otherSender) { otherSender = true; updateInfo(Date.now()); return; }
+        if (result.keepAlive) { remoteEvent(result); return; }
         var packet = result.packet;
         if (!packet) {
             var name = typeof result.name === "string" ? result.name.slice(0, 64) : "LG PlayCaption";
@@ -352,9 +399,14 @@
                 showStatus("PlayCaption LG · Služba nepotvrdila spuštění příjmu do 10 s. Zavři aplikaci a spusť ji znovu · OK / Zpět = nabídka");
             }
             if (receiverUI) {
-                if (lastSeen && now - lastSeen > 5000) receiverUI.pauseStory(now);
-                pauseMaskedStory(now);
-                receiverUI.tick(now);
+                // Chyba vykreslení nesmí zastavit udržení překryvu, skrývání ani kontrolu spojení.
+                try {
+                    if (lastSeen && now - lastSeen > 5000) receiverUI.pauseStory(now);
+                    pauseMaskedStory(now);
+                    receiverUI.tick(now);
+                } catch (error) {
+                    if (typeof console !== "undefined") console.error("PlayCaption tick:", error);
+                }
             }
             if (now - lastActivity >= 45000) keepOverlayOpen();
             if (now >= subtitleUntil) subtitle.hidden = true;

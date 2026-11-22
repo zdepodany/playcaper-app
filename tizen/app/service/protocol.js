@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* Prevzaté z PlayCaption (webos/service/protocol.js, © Adam Růžička) skriptom tizen/sync.py. Zmena: Buffer.from nahradený funkciou pre starší Node v Samsung TV. Neupravovať ručne. */
+/* Prevzaté z PlayCaption (webos/service/protocol.js, © Adam Růžička) skriptom tizen/sync.py. Bez zmien (starší Node rieši už LG zdroj). Neupravovať ručne. */
 "use strict";
 
-function bytes(text) {
-    if (Buffer.from && Buffer.from !== Uint8Array.from) return Buffer.from(text, "utf8");
+// webOS TV 3.x/4.x spouští JS služby v Node.js 0.12.2: chybí Buffer.from i Array.prototype.find.
+// V Node 4.0–4.4 je Buffer.from jen zděděné Uint8Array.from, proto ho nelze použít.
+exports.toBuffer = function (text) {
+    if (typeof Buffer.from === "function" && Buffer.from !== Uint8Array.from) return Buffer.from(text, "utf8");
     return new Buffer(text, "utf8");
-}
+};
 
 function unescape(text) {
     return text.replace(/\\(.)/g, function (_, ch) { return ch === "n" ? "\n" : ch; });
@@ -32,7 +34,7 @@ exports.parse = function (buffer) {
             if (durationPercent < 50 || durationPercent > 200) return null;
         }
         var converted = ["PCT1", "1", "60000", fields[3], ""].concat(fields.slice(4, 8), ["0", "B:" + fields[8]]);
-        var parsed = exports.parse(bytes(converted.join("\t")));
+        var parsed = exports.parse(exports.toBuffer(converted.join("\t")));
         if (!parsed || !parsed.layout) return null;
         parsed.kind = "story"; parsed.id = fields[1]; parsed.paused = fields[2] === "1";
         parsed.durationPercent = durationPercent;
@@ -79,7 +81,7 @@ exports.parse = function (buffer) {
         duration: Math.min(60000, duration > 0 ? duration : 6000),
         layout: layout,
         editing: Boolean(layout && fields[9] === "1"),
-        colors: (fields.find(function (value) { return value.indexOf("B:") === 0; }) || "B:").slice(2)
+        colors: (fields.filter(function (value) { return value.indexOf("B:") === 0; })[0] || "B:").slice(2)
             .split(",").slice(0, 64).map(function (value) {
                 var number = /^-?\d{1,10}$/.test(value) ? Number(value) : 0;
                 return number >= -2147483648 && number <= 4294967295 ? number : 0;

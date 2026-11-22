@@ -16,17 +16,14 @@ SUBORY = {
     "app/service/protocol.js": (
         "service/protocol.js",
         "/* Prevzaté z PlayCaption (webos/service/protocol.js, © Adam Růžička) skriptom tizen/sync.py."
-        " Zmena: Buffer.from nahradený funkciou pre starší Node v Samsung TV. Neupravovať ručne. */\n",
-        [('"use strict";\n', '"use strict";\n\nfunction bytes(text) {\n'
-          '    if (Buffer.from && Buffer.from !== Uint8Array.from) return Buffer.from(text, "utf8");\n'
-          '    return new Buffer(text, "utf8");\n}\n'),
-         ('Buffer.from(converted.join("\\t"), "utf8")', 'bytes(converted.join("\\t"))')],
+        " Bez zmien (starší Node rieši už LG zdroj). Neupravovať ručne. */\n",
+        [],
     ),
     "app/js/prijimac-ui.js": (
         "app/receiver-ui.js",
         "/* Prevzaté z PlayCaption (webos/app/receiver-ui.js, © Adam Růžička) skriptom tizen/sync.py."
-        " Zmena: trimEnd nahradený regulárnym výrazom kvôli starším Samsung TV. Neupravovať ručne. */\n",
-        [(".trimEnd()", '.replace(/\\s+$/, "")')],
+        " Bez zmien (staršie prehliadače rieši už LG zdroj). Neupravovať ručne. */\n",
+        [],
     ),
 }
 

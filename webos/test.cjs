@@ -122,19 +122,37 @@ const dgram = { createSocket() {
     const s = new EventEmitter();
     s.bind = (port, address, fn) => { assert.equal(port, 41989); s.bound = fn; };
     s.setBroadcast = value => { assert.equal(value, true); };
-    s.send = (data, port, address, callback) => { sent.push({ data: data.toString(), port, address }); callback(null); };
+    // Node.js 0.12 na webOS TV 4.x zná jen send(buffer, offset, length, port, adresa, callback).
+    s.send = (data, offset, length, port, address, callback) => {
+        assert.equal(offset, 0); assert.equal(length, data.length); assert.equal(typeof callback, 'function');
+        sent.push({ data: data.toString(), port, address }); callback(null);
+    };
     s.close = () => { s.closed = true; };
     sockets.push(s); return s;
 } };
-vm.runInNewContext(fs.readFileSync(__dirname + '/service/service.js', 'utf8'), {
-    require(name) {
-        if (name === 'webos-service') return Service;
-        if (name === 'dgram') return dgram;
-        if (name === 'os') return { hostname: () => 'LG', networkInterfaces: () => network };
-        return require(name.startsWith('./') ? './service/' + name.slice(2) : name);
-    }, Buffer, console, Date: { now: () => now },
-    setInterval: fn => { serviceTimers.set(++nextId, fn); return nextId; }, clearInterval: id => serviceTimers.delete(id)
-});
+// Prostředí jako Node.js 0.12.2 (webOS TV 3.x/4.x): Buffer bez from, pole bez find/findIndex/includes.
+function LegacyBuffer(text, encoding) { return Buffer.from(text, encoding); }
+LegacyBuffer.concat = Buffer.concat; LegacyBuffer.isBuffer = Buffer.isBuffer;
+const legacyNode = vm.createContext({ Buffer: LegacyBuffer, console, Date: { now: () => now },
+    setInterval: fn => { serviceTimers.set(++nextId, fn); return nextId; }, clearInterval: id => serviceTimers.delete(id) });
+vm.runInContext("delete Array.prototype.find; delete Array.prototype.findIndex; delete Array.prototype.includes;" +
+    "delete Array.prototype.flat; delete String.prototype.padStart; delete String.prototype.trimEnd; delete Object.values; delete Object.entries;", legacyNode);
+function legacyModule(file) {
+    const module = { exports: {} };
+    vm.runInContext('(function (exports, module) {' + fs.readFileSync(__dirname + '/service/' + file, 'utf8') + '\n})', legacyNode)(module.exports, module);
+    return module.exports;
+}
+legacyNode.require = name => {
+    if (name === 'webos-service') return Service;
+    if (name === 'dgram') return dgram;
+    if (name === 'os') return { hostname: () => 'LG', networkInterfaces: () => network };
+    if (name === './protocol') return legacyModule('protocol.js');
+    return require(name.startsWith('./') ? './service/' + name.slice(2) : name);
+};
+const legacyParse = legacyModule('protocol.js').parse;
+assert.equal(JSON.stringify(legacyParse(Buffer.from('PCT1\t7\t6000\tAhoj\t\t0.5\t0.9\t0.8\t1\tB:-1')).colors), '[-1]');
+assert.equal(legacyParse(Buffer.from('PCS1\t' + 'a'.repeat(32) + '.1.0.0\t0\tText\t0.5\t0.9\t0.8\t1\t')).kind, 'story');
+vm.runInContext(fs.readFileSync(__dirname + '/service/service.js', 'utf8'), legacyNode);
 const request = { isSubscription: true, uniqueToken: 'a', respond: p => replies.push(p) };
 handlers.listen.request(request);
 sockets[0].bound();

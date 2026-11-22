@@ -32,7 +32,8 @@ const { once } = require('node:events');
                         assert.equal(port, 41989);
                         bind(0, '127.0.0.1', callback);
                     };
-                    socket.send = (data, port, host, callback) => {
+                    socket.send = (data, offset, length, port, host, callback) => {
+                        assert.equal(offset, 0); assert.equal(length, data.length);
                         if (port === 41988) {
                             assert.equal(host, '127.255.255.255');
                             send(data, discovery.address().port, '127.0.0.1', callback);
