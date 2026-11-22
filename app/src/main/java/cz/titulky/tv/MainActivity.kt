@@ -165,6 +165,12 @@ class MainActivity : ComponentActivity() {
     private fun ukazHlavni() {
         zastavServer()
         obrazovka = "hlavni"
+        pripojeniOtevreno = false
+        vykresliDomu()
+    }
+
+    /** Domů, případně s otevřeným průvodcem připojení PS5 ve spodním panelu. */
+    private fun vykresliDomu() {
         setContent {
             PlayCaperTema {
                 TelefonKostra(0, ::t, naDomu = {}, naNastaveni = { ukazNastaveni() }) {
@@ -174,6 +180,17 @@ class MainActivity : ComponentActivity() {
                         naLogo = { Zaznam.ukaz(this) },
                         naPs = { ukazPripojeni() },
                         naHrat = { if (udaje.sparovano) startActivity(Intent(this, TelefonActivity::class.java)) else ukazPripojeni() },
+                    )
+                }
+                if (pripojeniOtevreno) {
+                    val revize = psnRevize // změna přihlášení → přepočítat stav
+                    PripojeniSheet(
+                        t = ::t, st = remember(revize) { pripojeniStav() },
+                        hledani = HledaniStav(hledaniText, hledaniTon, hledaniProbiha),
+                        pin = pinText, naPin = { pinText = it },
+                        parovani = parovaniText, parovaniTon = parovaniTon, parovaniProbiha = parovaniProbiha,
+                        naZavrit = { ukazHlavni() },
+                        naUcet = { ukazPsnTelefonem() }, naHledat = { hledejPs() }, naSparovat = { sparujPs() },
                     )
                 }
             }
@@ -337,6 +354,7 @@ class MainActivity : ComponentActivity() {
     private var parovaniTon by androidx.compose.runtime.mutableStateOf(Ton.BEZNY)
     private var parovaniProbiha by androidx.compose.runtime.mutableStateOf(false)
     private var psnQrText by androidx.compose.runtime.mutableStateOf("")
+    private var pripojeniOtevreno by androidx.compose.runtime.mutableStateOf(false)
 
     private fun pripojeniStav(): PripojeniStav {
         val maUcet = udaje.accountIdBajty() != null
@@ -388,23 +406,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Otevře průvodce připojením PS5 (spodní panel nad Domů). */
     private fun ukazPripojeni(ukoncitPrihlaseni: Boolean = true) {
         if (ukoncitPrihlaseni) zastavServer()
         obrazovka = "pripojeni"
         if (ukoncitPrihlaseni) { pinText = ""; parovaniText = ""; parovaniTon = Ton.BEZNY; parovaniProbiha = false; hledaniText = "" }
-        setContent {
-            PlayCaperTema {
-                val revize = psnRevize // změna přihlášení → přepočítat stav
-                PripojeniObrazovka(
-                    t = ::t, st = remember(revize) { pripojeniStav() },
-                    hledani = HledaniStav(hledaniText, hledaniTon, hledaniProbiha),
-                    pin = pinText, naPin = { pinText = it },
-                    parovani = parovaniText, parovaniTon = parovaniTon, parovaniProbiha = parovaniProbiha,
-                    naZpet = { ukazHlavni() },
-                    naUcet = { ukazPsnTelefonem() }, naHledat = { hledejPs() }, naSparovat = { sparujPs() },
-                )
-            }
-        }
+        pripojeniOtevreno = true
+        vykresliDomu()
         if (ukoncitPrihlaseni || hledaniText.isEmpty()) hledejPs()
     }
 

@@ -92,14 +92,6 @@ object Texty {
         "psnOdpoved" to listOf("Sony vrátilo neplatné údaje účtu. Účet nebyl uložen; přihlas se znovu.", "Sony vrátilo neplatné údaje účtu. Účet nebol uložený; prihlás sa znova.", "Sony hat ungültige Kontodaten geliefert. Das Konto wurde nicht gespeichert; melde dich erneut an.", "Sony zwróciło nieprawidłowe dane konta. Konto nie zostało zapisane; zaloguj się ponownie.", "Sony a renvoyé des données de compte invalides. Le compte n'a pas été enregistré ; reconnecte-toi.", "Sony devolvió datos de cuenta no válidos. La cuenta no se guardó; inicia sesión de nuevo.", "Sony ha restituito dati dell'account non validi. L'account non è stato salvato; accedi di nuovo."),
         "psnUlozeni" to listOf("Účet se nepodařilo uložit na zařízení s PlayCaption. Zkus to znovu.", "Účet sa nepodarilo uložiť na zariadení s PlayCaption. Skús to znova.", "Das Konto konnte auf dem Gerät mit PlayCaption nicht gespeichert werden. Versuche es erneut.", "Nie udało się zapisać konta na urządzeniu z PlayCaption. Spróbuj ponownie.", "Impossible d'enregistrer le compte sur l'appareil avec PlayCaption. Réessaie.", "No se pudo guardar la cuenta en el dispositivo con PlayCaption. Inténtalo de nuevo.", "Impossibile salvare l'account sul dispositivo con PlayCaption. Riprova."),
         "psnStranka" to listOf("Přihlašovací stránku se nepodařilo spustit. Zavři ostatní instance PlayCaption a otevři přihlášení znovu.", "Prihlasovaciu stránku sa nepodarilo spustiť. Zatvor ostatné inštancie PlayCaption a otvor prihlásenie znova.", "Die Anmeldeseite konnte nicht gestartet werden. Schließe andere PlayCaption-Instanzen und öffne die Anmeldung erneut.", "Nie udało się uruchomić strony logowania. Zamknij inne instancje PlayCaption i otwórz logowanie ponownie.", "Impossible de démarrer la page de connexion. Ferme les autres instances de PlayCaption et rouvre la connexion.", "No se pudo abrir la página de inicio de sesión. Cierra otras instancias de PlayCaption y vuelve a abrirla.", "Impossibile avviare la pagina di accesso. Chiudi le altre istanze di PlayCaption e riapri l'accesso."),
-        "tipPripojeni" to listOf(
-            "💡 Rychlost a přesnost titulků závisí hlavně na rychlosti internetového připojení a výkonu zařízení. Nejlépe funguje síťový kabel nebo 5 GHz Wi-Fi.",
-            "💡 Rýchlosť a presnosť titulkov závisí hlavne od rýchlosti internetového pripojenia a výkonu zariadenia. Najlepšie funguje sieťový kábel alebo 5 GHz Wi-Fi.",
-            "💡 Tempo und Genauigkeit der Untertitel hängen vor allem von der Geschwindigkeit deiner Internetverbindung und der Leistung deines Geräts ab. Am besten: LAN-Kabel oder 5-GHz-WLAN.",
-            "💡 Szybkość i dokładność napisów zależą głównie od szybkości połączenia z internetem i wydajności urządzenia. Najlepiej działa kabel sieciowy lub Wi-Fi 5 GHz.",
-            "💡 La rapidité et la précision des sous-titres dépendent surtout de la vitesse de ta connexion internet et de la puissance de ton appareil. Idéal : câble réseau ou Wi-Fi 5 GHz.",
-            "💡 La rapidez y precisión de los subtítulos dependen sobre todo de la velocidad de tu conexión a internet y de la potencia de tu dispositivo. Mejor con cable de red o Wi-Fi de 5 GHz.",
-            "💡 Velocità e precisione dei sottotitoli dipendono soprattutto dalla velocità della connessione internet e dalle prestazioni del dispositivo. Meglio con cavo di rete o Wi-Fi a 5 GHz."),
         "zasluhy" to listOf(
             "PlayCaption © 2026 Adam Růžička. Na vývoji se podíleli Rudolf Nohal (LG televize, opravy chyb a vývoj celé aplikace) a Michael Šubák (Samsung televize) – díky, kluci! Spojení s PS5 a přenos obrazu zajišťuje open-source projekt Chiaki / chiaki-ng (licence AGPLv3) – velké díky jeho autorům. Obraz z dekodéru předává knihovna WebRTC (Apache 2.0). PlayCaption je také open-source pod AGPLv3: github.com/AdamRuzick4/PlayCaption-app",
             "PlayCaption © 2026 Adam Růžička. Na vývoji sa podieľali Rudolf Nohal (LG televízory, opravy chýb a vývoj celej aplikácie) a Michael Šubák (Samsung televízory) – vďaka, chalani! Spojenie s PS5 a prenos obrazu zabezpečuje open-source projekt Chiaki / chiaki-ng (licencia AGPLv3) – veľká vďaka jeho autorom. Obraz z dekodéra odovzdáva knižnica WebRTC (Apache 2.0). PlayCaption je tiež open-source pod AGPLv3: github.com/AdamRuzick4/PlayCaption-app",
@@ -388,6 +380,7 @@ object Texty {
         "ppUvodNadpis" to listOf("Připoj telefon k PS5", "Pripoj telefón k PS5"),
         "ppUvod" to listOf("PS5 posílá obraz přes Remote Play, proto PlayCaption potřebuje vlastní přihlášení. Založ na PS5 druhého uživatele, ty hraješ dál na svém účtu.", "PS5 posiela obraz cez Remote Play, preto PlayCaption potrebuje vlastné prihlásenie. Založ na PS5 druhého používateľa, ty hráš ďalej na svojom účte."),
         "ppUvodBezUctu" to listOf("Přidání: tlačítko PS → profil → Přepnout uživatele → Přidat uživatele.", "Pridanie: tlačidlo PS → profil → Prepnúť používateľa → Pridať používateľa."),
+        "ppKrokZ" to listOf("Krok {n} ze 3", "Krok {n} z 3"),
         "ppK1Nadpis" to listOf("Přihlas se k PlayStation", "Prihlás sa k PlayStation"),
         "ppK1" to listOf("Přihlas se druhým uživatelem, ne hlavním účtem.", "Prihlás sa druhým používateľom, nie hlavným účtom."),
         "ppNeprihlasen" to listOf("Zatím nepřihlášeno", "Zatiaľ neprihlásené"),
@@ -447,7 +440,6 @@ object Texty {
         // jak hrát
         "hratZmackni" to listOf("👇 Zmáčkni a jde se hrát", "👇 Stlač a ide sa hrať"),
         "hratBtn" to listOf("▶ Hrát", "▶ Hrať"),
-        "tipPripojeni" to listOf("💡 Nejlépe funguje kabel nebo 5 GHz Wi-Fi.", "💡 Najlepšie funguje kábel alebo 5 GHz Wi-Fi."),
         // povolení zobrazení (televize)
         // diagnostika
         "diagNadpis" to listOf("DIAGNOSTIKA", "DIAGNOSTIKA"),

@@ -142,21 +142,20 @@ internal fun DomuObrazovka(
         )
         Text(verze, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
     }
-    Spacer(Modifier.height(16.dp))
-    StavKarta(stav)
+    // bez spárované konzole karta Stav nic užitečného neřekne – stačí řádek konzole a neaktivní Hrát
+    val sparovano = stav.ps.first != "off"
+    if (sparovano) {
+        Spacer(Modifier.height(16.dp))
+        StavKarta(stav)
+    }
 
     Nadpis(t("hlKonzole"))
     KonzoleRadek("PlayStation", stav.ps, t, naPs)
 
     Spacer(Modifier.height(24.dp))
-    Button(onClick = naHrat, modifier = Modifier.fillMaxWidth().height(64.dp)) {
+    Button(onClick = naHrat, enabled = sparovano, modifier = Modifier.fillMaxWidth().height(64.dp)) {
         Text(t("hratBtn"), style = MaterialTheme.typography.titleLarge)
     }
-    Text(
-        t("tipPripojeni").trimStart { !it.isLetterOrDigit() },
-        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-    )
 }
 
 @Composable
