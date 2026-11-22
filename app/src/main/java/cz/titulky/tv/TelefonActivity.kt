@@ -41,8 +41,6 @@ class TelefonActivity : Activity() {
     private lateinit var segTel: TextView
     private lateinit var tip: TextView
     private lateinit var horniPanel: View
-    /** Tlačítko ⇄ Xbox / ⇄ PS5 (jen když jsou zapnuté obě konzole). */
-    private var prepnoutKonzoli: TextView? = null
     /** Na šířku (jen titulky v telefonu): malá zelená tečka „Titulky aktivní“ v rohu. */
     private lateinit var sirkaZnacka: LinearLayout
     private lateinit var sirkaTecka: View
@@ -151,7 +149,7 @@ class TelefonActivity : Activity() {
         obnovTvTlacitko()
     }
 
-    /** Původní předávání Android TV ponechává minutový limit; LG potřebuje telefon dál. */
+    /** Bez LG platí minutový limit po zhasnutí; LG potřebuje telefon dál. */
     private fun pokracovatNaLg() = TelefonPozadi.pokracovatNaLg(RemotePlayService.aktivni,
         Propojeni.Vysilac.cilIp, TvProfily.aktivniId?.let { televize.najdi(it)?.platforma })
 
@@ -200,7 +198,7 @@ class TelefonActivity : Activity() {
     }
 
     /**
-     * Zpět (tlačítko / gesto) dřív aplikaci zavřelo a tím i ukončilo spojení s PS5/Xboxem.
+     * Zpět (tlačítko / gesto) dřív aplikaci zavřelo a tím i ukončilo spojení s PS5.
      * Teď ji jen schová do pozadí – titulky běží dál. Ukončit jde tlačítkem v aplikaci.
      */
     @Deprecated("Deprecated in Java")
@@ -920,17 +918,6 @@ class TelefonActivity : Activity() {
             setPadding(dp(16), dp(2), dp(16), dp(10))
             addView(tecka, LinearLayout.LayoutParams(dp(9), dp(9)).apply { rightMargin = dp(8) })
             addView(stav, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            // obě konzole zapnuté → přepnout (stejně jako na televizi)
-            addView(TextView(this@TelefonActivity).apply {
-                textSize = 14f
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(Color.WHITE)
-                background = zaobleni(Color.parseColor("#E5091A"))
-                setPadding(dp(14), dp(6), dp(14), dp(6))
-                visibility = View.GONE
-                setOnClickListener { RemotePlayService.prepni(this@TelefonActivity, naXbox = !RemotePlayService.naXboxu) }
-                prepnoutKonzoli = this
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(8) })
         }
         val horni = LinearLayout(this).apply {
             horniPanel = this
@@ -1144,12 +1131,6 @@ class TelefonActivity : Activity() {
             stav.text = Texty.spojeni(nast.jazykNeboCs, spojeni)
             if (nast.pribehovy) stav.append("\n" + RemotePlayService.pribehStav)
             tecka.background = zaobleni(barva)
-            prepnoutKonzoli?.let { b ->
-                val ukazat = RemotePlayService.obeZapnute && RemotePlayUdaje(this@TelefonActivity).sparovano &&
-                    XboxUcet.konzole(this@TelefonActivity) != null
-                b.visibility = if (ukazat) View.VISIBLE else View.GONE
-                b.text = if (RemotePlayService.naXboxu) "⇄ Xbox" else "⇄ PS5"
-            }
 
             // titulky jdou do televize → telefon jen ukazuje stav a ztlumí displej (šetří baterii)
             val doTv = Propojeni.Vysilac.cilIp != null

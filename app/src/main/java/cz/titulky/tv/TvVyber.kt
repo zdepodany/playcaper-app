@@ -13,7 +13,6 @@ class TvVyber(
     private fun t(klic: String) = Texty.t(activity, klic)
 
     private fun platformaText(p: TvPlatforma) = when (p) {
-        TvPlatforma.ANDROID_TV -> "Android TV / Google TV"
         TvPlatforma.WEBOS -> "LG webOS"
         TvPlatforma.SAMSUNG -> "Samsung (Tizen)"
         TvPlatforma.NEZNAMA -> t("tvPlatformaNeznama")
@@ -38,10 +37,7 @@ class TvVyber(
                         }.show()
                     1 -> vyberTelevizi()
                     2 -> if (televize.platforma == TvPlatforma.WEBOS) lgPruvodce() else if (televize.platforma == TvPlatforma.SAMSUNG) samsungPruvodce() else android.app.AlertDialog.Builder(activity).setTitle(platformaText(televize.platforma))
-                        .setMessage(t(when (televize.platforma) {
-                            TvPlatforma.ANDROID_TV -> "tvNavodAndroid"
-                            else -> "tvNavodNeznamy"
-                        }) + "\n\n" + t("tvVerzeNeznama"))
+                        .setMessage(t("tvNavodNeznamy") + "\n\n" + t("tvVerzeNeznama"))
                         .setPositiveButton("OK", null).show()
                     4 -> lg?.let { LgDevDialog(activity, it).ukaz() }
                     else -> lokalne()

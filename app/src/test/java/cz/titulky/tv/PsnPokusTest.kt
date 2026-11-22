@@ -134,17 +134,11 @@ class PsnPokusTest {
         assertNotEquals(PsnPokus.Stav.HOTOVO, p.stav)
     }
 
-    @Test fun noveTextyJsouVeVsechJazycichAPuvodniTvPostupZustal() {
+    @Test fun noveTextyJsouVeVsechJazycich() {
         val klice = listOf("psnOveruji", "psnKod", "psnSony", "psnLimit", "psnCas", "psnSit", "psnOdpoved",
-            "psnUlozeni", "psnStranka", "krok1Telefon", "krok3Telefon", "predemTelefon", "qrVProhlizeci")
+            "psnUlozeni", "psnStranka", "qrVProhlizeci")
         for (jazyk in Texty.JAZYKY) for (klic in klice) {
             assertNotEquals(klic, Texty.t(jazyk.kod, klic))
         }
-        assertTrue(Texty.t("cs", "krok3").contains("na ovladači televize"))
-        assertTrue(Texty.t("cs", "krok3Telefon").contains("zadej sem do telefonu"))
-        assertFalse(Texty.t("cs", "predemTelefon").contains("televize připojí"))
-        assertTrue(Texty.t("cs", "maTvNadpis").contains("Android TV / Google TV"))
-        assertTrue(Texty.t("cs", "maTv").contains("U LG a Samsungu"))
-        assertFalse(Texty.t("cs", "nemamTv").contains("Nemám televizi"))
     }
 }

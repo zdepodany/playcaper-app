@@ -55,9 +55,8 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     // Rozpoznání jazyka – překládáme jen anglický text (zdarma, v televizi)
     implementation("com.google.mlkit:language-id:17.0.6")
-    // QR kód pro přihlášení k PSN přes telefon
-    implementation("com.google.zxing:core:3.5.3")
-    // Xbox: příjem obrazu z konzole (WebRTC, Google libwebrtc v balíčku od Stream – Apache 2.0)
+    // Obraz z PS5 přímo z dekodéru (PametObraz): třídy VideoFrame / JavaI420Buffer z WebRTC
+    // (Google libwebrtc v balíčku od Stream – Apache 2.0)
     implementation("io.getstream:stream-webrtc-android:1.3.7")
 }
 

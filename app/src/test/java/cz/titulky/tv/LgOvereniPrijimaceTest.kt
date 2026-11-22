@@ -14,11 +14,11 @@ class LgOvereniPrijimaceTest {
     @Test fun targetSelectionUsesOnlyKnownLgAndDoesNotGuessBetweenSeveralTvs() {
         val lg = TvProfil(tv.id, tv.jmeno, tv.ip, TvPlatforma.WEBOS)
         val other = lg.copy(id = "lg-ffeeddccbbaa", ip = "127.0.0.2")
-        val android = lg.copy(id = "android-tv", platforma = TvPlatforma.ANDROID_TV)
+        val neznama = lg.copy(id = "neznama-tv", platforma = TvPlatforma.NEZNAMA)
         val samsung = lg.copy(id = "samsung-001122334455", platforma = TvPlatforma.SAMSUNG)
-        assertNull(LgOvereniPrijimace.cil(null, "", "", listOf(android, samsung), android.id))
+        assertNull(LgOvereniPrijimace.cil(null, "", "", listOf(neznama, samsung), neznama.id))
         assertNull(LgOvereniPrijimace.cil(null, "", "", listOf(lg, other), null))
-        assertEquals(tv, LgOvereniPrijimace.cil(null, "", "", listOf(lg, android), android.id))
+        assertEquals(tv, LgOvereniPrijimace.cil(null, "", "", listOf(lg, neznama), neznama.id))
         assertEquals(other.ip, LgOvereniPrijimace.cil(null, "", other.ip, listOf(lg, other), lg.id)?.ip)
         assertNull(LgOvereniPrijimace.cil(null, "", "127.0.0.3", listOf(lg), lg.id))
     }

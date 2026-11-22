@@ -1,22 +1,16 @@
 package cz.titulky.tv
 
-import android.graphics.Bitmap
-import android.graphics.Color
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
-import java.net.Inet4Address
+import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
 
 /**
- * Přihlášení k PSN přes telefon.
+ * Přihlášení k PSN přes běžný prohlížeč telefonu.
  * Sony blokuje přihlášení v prohlížeči uvnitř aplikace ("Can't connect to the server"),
- * proto televize spustí malou webovou stránku v domácí síti. Telefon ji otevře přes QR kód,
- * člověk se přihlásí v normálním prohlížeči a vloží adresu, kde skončil → kód přijde do televize.
+ * proto aplikace spustí malou webovou stránku jen pro tento telefon (127.0.0.1). Člověk se
+ * přihlásí v normálním prohlížeči a vloží adresu, kde skončil → kód přijde do aplikace.
  */
 internal class PrihlaseniTelefonem(private val cesky: Boolean, private val pokus: PsnPokus) {
 
@@ -30,7 +24,8 @@ internal class PrihlaseniTelefonem(private val cesky: Boolean, private val pokus
             runCatching {
                 ServerSocket().use { s ->
                     s.reuseAddress = true
-                    s.bind(InetSocketAddress(PORT))
+                    // jen tento telefon – stránka není vidět z domácí sítě
+                    s.bind(InetSocketAddress(InetAddress.getLoopbackAddress(), PORT))
                     server = s
                     while (bezi) {
                         val c = s.accept()
@@ -51,8 +46,6 @@ internal class PrihlaseniTelefonem(private val cesky: Boolean, private val pokus
             c.use {
                 c.soTimeout = 15000
                 val r = c.getInputStream().bufferedReader()
-                // otevřel to sám telefon, na kterém PlayCaption běží (ne telefon u televize)
-                val mistni = c.inetAddress.isLoopbackAddress
                 val prvni = r.readLine() ?: return
                 val cesta = prvni.split(" ").getOrNull(1) ?: "/"
                 while (true) { val h = r.readLine() ?: break; if (h.isEmpty()) break }
@@ -73,8 +66,8 @@ internal class PrihlaseniTelefonem(private val cesky: Boolean, private val pokus
                             flush()
                         }
                         return
-                    } else stranka(mistni, chyba = true)
-                } else stranka(mistni)
+                    } else stranka(chyba = true)
+                } else stranka()
 
                 val telo = html.toByteArray()
                 val o = c.getOutputStream()
@@ -86,14 +79,8 @@ internal class PrihlaseniTelefonem(private val cesky: Boolean, private val pokus
         }
     }
 
-    internal fun stranka(mistni: Boolean, chyba: Boolean = false): String {
-        val T = (if (cesky) CS else EN).toMutableList()
-        if (mistni) {
-            // na telefonu se nic neskenuje – vrátit se do aplikace a otevřít stránku znovu
-            val Tt = if (cesky) CS_TELEFON else EN_TELEFON
-            T[0] = Tt[0]; T[9] = Tt[1]
-            T[5] = if (cesky) "Ověřit a uložit účet" else "Verify and save account"
-        }
+    internal fun stranka(chyba: Boolean = false): String {
+        val T = if (cesky) CS else EN
         val vysledek = pokus.vysledek
         val stav = vysledek.stav
         val obsah = when (stav) {
@@ -169,70 +156,34 @@ internal class PrihlaseniTelefonem(private val cesky: Boolean, private val pokus
         )
 
         private val CS = listOf(
-            "✔ Hotovo! Účet je v televizi. Můžeš tuhle stránku zavřít a pokračovat na televizi.",
+            "✔ Hotovo! Účet je uložený. Zavři prohlížeč a vrať se do aplikace PlayCaption.",
             "✘ V adrese jsem nenašel kód. Zkopíruj prosím celou adresu z řádku s adresou (musí obsahovat „code=“).",
             "Přihlas se k PlayStation <b>DRUHÝM účtem z PS5 – ne tím hlavním, na kterém hraješ</b>.",
             "Přihlásit se k PlayStation",
             "Po přihlášení se může ukázat <b>BÍLÁ stránka</b> nebo chyba. Pokud adresa obsahuje <b>code=</b>, pokračuj níže. Účet ještě není uložený. Stránka může vypadat takhle:",
-            "Vložit do televize",
+            "Ověřit a uložit účet",
             "1. klepni sem",
             "bílá stránka",
             "Klepni na <b>řádek s adresou</b> a dej <b>Kopírovat</b>.<br>" +
                 "• <b>iPhone (Safari):</b> adresa je <b>DOLE</b>. Klepni na ni → ikona <b>Kopírovat</b> (dva čtverečky).<br>" +
                 "• <b>Android (Chrome):</b> adresa je <b>NAHOŘE</b>. Klepni na ni → ikona <b>Kopírovat</b> (dva čtverečky).",
-            "<b>Naskenuj QR kód z televize znovu</b> – otevře se zase tahle stránka. Do pole dole podrž prst → <b>Vložit</b>. Odešle se to samo.",
+            "<b>Vrať se do aplikace PlayCaption a klepni znovu na „Otevřít v prohlížeči“</b> – otevře se zase tahle stránka. Do pole dole podrž prst → <b>Vložit</b>. Odešle se to samo.",
             "Sem podrž prst a dej Vložit"
         )
-        private val CS_TELEFON = listOf(
-            "✔ Hotovo! Účet je uložený. Zavři prohlížeč a vrať se do aplikace PlayCaption.",
-            "<b>Vrať se do aplikace PlayCaption a klepni znovu na „Otevřít v prohlížeči“</b> – otevře se zase tahle stránka. Do pole dole podrž prst → <b>Vložit</b>. Odešle se to samo."
-        )
-        private val EN_TELEFON = listOf(
-            "✔ Done! The account is saved. Close the browser and go back to the PlayCaption app.",
-            "<b>Go back to the PlayCaption app and tap “Open in browser” again</b> – this page opens again. Long-press the box below → <b>Paste</b>. It sends itself."
-        )
         private val EN = listOf(
-            "✔ Done! The account is on the TV. You can close this page and continue on the TV.",
+            "✔ Done! The account is saved. Close the browser and go back to the PlayCaption app.",
             "✘ No code found in the address. Please copy the whole address from the bar at the top (it must contain “code=”).",
             "Sign in with your <b>SECOND PS5 account – not the main one you play on</b>.",
             "Sign in to PlayStation",
             "After signing in you may see a <b>WHITE page</b> or an error. If the address contains <b>code=</b>, continue below. The account has not been saved yet. The page may look like this:",
-            "Send to TV",
+            "Verify and save account",
             "1. tap here",
             "white page",
             "Tap the <b>address bar</b> and choose <b>Copy</b>.<br>" +
                 "• <b>iPhone (Safari):</b> the address is at the <b>BOTTOM</b>. Tap it → <b>Copy</b> icon (two squares).<br>" +
                 "• <b>Android (Chrome):</b> the address is at the <b>TOP</b>. Tap it → <b>Copy</b> icon (two squares).",
-            "<b>Scan the QR code on the TV again</b> – this page opens again. Long-press the box below → <b>Paste</b>. It sends itself.",
+            "<b>Go back to the PlayCaption app and tap “Open in browser” again</b> – this page opens again. Long-press the box below → <b>Paste</b>. It sends itself.",
             "Long-press here and choose Paste"
         )
-
-        /** IP adresa zařízení v domácí síti (pro QR kód). */
-        /**
-         * IP adresa televize v síti, kterou právě používá (Wi-Fi nebo kabel).
-         * Dřív se brala první adresa z jakéhokoli rozhraní – na některých televizích to byla
-         * adresa nepoužívaného rozhraní a telefon se pak k ní nedostal (ERR_ADDRESS_UNREACHABLE).
-         */
-        fun mojeIp(ctx: android.content.Context): String? = runCatching {
-            val cm = ctx.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-            val lp = cm.getLinkProperties(cm.activeNetwork)
-            lp?.linkAddresses?.map { it.address }?.firstOrNull { it is Inet4Address && it.isSiteLocalAddress }?.hostAddress
-        }.getOrNull() ?: mojeIp()
-
-        fun mojeIp(): String? = runCatching {
-            NetworkInterface.getNetworkInterfaces().toList()
-                .filter { it.isUp && !it.isLoopback }
-                .flatMap { it.inetAddresses.toList() }
-                .firstOrNull { it is Inet4Address && it.isSiteLocalAddress }?.hostAddress
-        }.getOrNull()
-
-        /** QR kód jako obrázek. */
-        fun qr(text: String, velikost: Int): Bitmap {
-            val m = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, velikost, velikost, mapOf(EncodeHintType.MARGIN to 1))
-            val bmp = Bitmap.createBitmap(velikost, velikost, Bitmap.Config.RGB_565)
-            for (x in 0 until velikost) for (y in 0 until velikost)
-                bmp.setPixel(x, y, if (m[x, y]) Color.BLACK else Color.WHITE)
-            return bmp
-        }
     }
 }

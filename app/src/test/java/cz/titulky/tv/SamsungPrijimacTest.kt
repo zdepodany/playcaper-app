@@ -56,12 +56,8 @@ class SamsungPrijimacTest {
         val skip = SamsungPruvodceStav(0); skip.prijimacMam()
         assertEquals(SamsungPruvodceStav.POSLEDNI, skip.krok)
     }
-    @Test fun samsungIsDisplayOnlyLikeLg() {
-        assertTrue(TvPlatforma.SAMSUNG.jenZobrazovac)
-        assertTrue(TvPlatforma.WEBOS.jenZobrazovac)
-        assertFalse(TvPlatforma.ANDROID_TV.jenZobrazovac)
-        assertFalse(TvPlatforma.NEZNAMA.jenZobrazovac)
-        // Uložené profily se čtou podle jména; původní pořadí hodnot se nesmí změnit.
-        assertEquals(listOf("NEZNAMA", "ANDROID_TV", "WEBOS", "SAMSUNG"), TvPlatforma.values().map { it.name })
+    @Test fun platformyPrijimacu() {
+        // Uložené profily se čtou podle jména (dřívější ANDROID_TV se načte jako NEZNAMA).
+        assertEquals(listOf("NEZNAMA", "WEBOS", "SAMSUNG"), TvPlatforma.values().map { it.name })
     }
 }

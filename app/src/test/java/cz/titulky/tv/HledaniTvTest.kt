@@ -45,10 +45,10 @@ class HledaniTvTest {
         }
     }
 
-    @Test fun legacyAndroidAnnouncementStillWorks() {
-        odpovidac({ "PLAYCAPTION_TV\tandroid-tv\tAndroid TV\t1" }, broadcast = true) {
+    @Test fun broadcastAnnouncementStillWorks() {
+        odpovidac({ "PLAYCAPTION_TV\tjina-tv\tJiná TV\t1" }, broadcast = true) {
             val found = Propojeni.hledejVSiti(300, listOf(lg))
-            assertEquals(listOf(Propojeni.Televize("android-tv", "Android TV", "127.0.0.1", true)), found.filter { it.ip == lg.ip })
+            assertEquals(listOf(Propojeni.Televize("jina-tv", "Jiná TV", "127.0.0.1", true)), found.filter { it.ip == lg.ip })
         }
     }
 

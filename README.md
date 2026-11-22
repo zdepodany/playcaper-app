@@ -2,7 +2,7 @@
 
 © 2026 Adam Růžička. Licence GNU AGPLv3 (viz níže).
 
-**České (a slovenské) titulky ke hrám na PS5 a Xboxu přímo na televizi.**
+**České (a slovenské) titulky ke hrám na PS5 přímo na televizi.**
 
 > Spojení s PS5 zajišťuje otevřená knihovna **[Chiaki](https://git.sr.ht/~thestr4ng3r/chiaki)** (Florian Märkl a přispěvatelé, AGPLv3). Čtení titulků, překlad a zobrazení na televizi jsou vlastní práce PlayCaption, vyvíjená s pomocí AI. Podrobně v části [Poděkování](#poděkování-a-použitý-software).
 
@@ -10,7 +10,7 @@ PlayCaption čte anglické titulky ze hry, překládá je a zobrazuje česky př
 
 Na [předvedené sestavě](https://www.youtube.com/watch?v=N_jr-jix7TE) funguje souběžně Remote Play i HDR. Ukázka není měřením interního rozlišení hry ani přesného počtu vykreslených snímků. Podporu dalších kombinací HDR/VRR a dopad souběžného Remote Play na výkon je potřeba ověřit na konkrétní sestavě.
 
-- Android aplikace funguje na **Android TV / Google TV** a na Android telefonech/tabletech.
+- Android aplikace běží na Android telefonech/tabletech. Fork PlayCaper podporu Android TV / Google TV a Xboxu odebral; titulky na televizi zobrazuje přijímač na LG nebo Samsungu.
 - Pro **LG webOS** je dostupný experimentální přijímač titulků z Android telefonu/tabletu: [návod pro LG](webos/NAVOD-LG.md). Vyžaduje Developer Mode; ověřený model je LG C5. Samostatný překlad přímo v LG bez Android zařízení tato verze neumí.
 - Pro **Samsung (Tizen)** je dostupný experimentální přijímač titulků z Android telefonu/tabletu: [návod pro Samsung](tizen/NAVOD-SAMSUNG.md). Vyžaduje Developer Mode a účet Samsung; instalaci zatím provádí externí nástroj, protože Samsung vyžaduje podpis pro konkrétní televizi.
 - Projekt je ve stavu **beta**, sledujte [Releases](https://github.com/AdamRuzick4/PlayCaption-app/releases).
@@ -38,9 +38,7 @@ Nejnovější verze: [Releases](https://github.com/AdamRuzick4/PlayCaption-app/r
 PlayCaption stojí na práci jiných open-source projektů:
 
 - **[Chiaki](https://git.sr.ht/~thestr4ng3r/chiaki)** (Florian Märkl a přispěvatelé) a **[chiaki-ng](https://github.com/streetpea/chiaki-ng)**. Jejich knihovna (`libchiaki-jni.so`) zajišťuje veškerou komunikaci s PS5: přihlášení, párování, Remote Play a přenos obrazu. Licence **AGPLv3**. Velké díky autorům, bez nich by PlayCaption nevznikl.
-- **[xbox-xcloud-player](https://github.com/unknownskl/xbox-xcloud-player)** (unknownskl, MIT) a **[XStreaming](https://github.com/Geocld/XStreaming)** (Geocld, AGPLv3): podle jejich postupu je napsané přihlášení k Xboxu a spojení s ním (`XboxUcet.kt`, `XboxSpojeni.kt`).
-- **[WebRTC](https://webrtc.org/)** (Android sestavení [stream-webrtc-android](https://github.com/GetStream/webrtc-android), BSD/Apache 2.0): přenos obrazu z Xboxu.
-- **[ZXing](https://github.com/zxing/zxing)** (Apache 2.0): QR kódy.
+- **[WebRTC](https://webrtc.org/)** (Android sestavení [stream-webrtc-android](https://github.com/GetStream/webrtc-android), BSD/Apache 2.0): třídy pro snímky obrazu z PS5 předávané přímo z dekodéru.
 - **[JSch](https://github.com/mwiede/jsch)** (BSD): SSH/SFTP pro místní instalaci LG přijímače z Android průvodce. Licenční texty jsou přibalené v APK v `assets/licenses/`.
 - **Google ML Kit**: rozpoznání textu z obrazu, offline překlad a rozpoznání jazyka.
 - Překlad: online překladová služba.
@@ -53,7 +51,7 @@ Podporu LG webOS a Příběhový režim napsal **Rudolf Nohal**, který se podí
 
 - Zdrojový kód PlayCaption je v tomto repozitáři. Každá vydaná verze má svůj tag (např. `v0.9-beta`) a odpovídající zdrojový kód je u ní v [Releases](https://github.com/AdamRuzick4/PlayCaption-app/releases).
 - `app/src/main/jniLibs/*/libchiaki-jni.so`: nativní knihovna z projektu **Chiaki 2.1.1** (© Florian Märkl a přispěvatelé, licence GNU AGPLv3), převzatá z Android sestavení [Chiaki-TV](https://github.com/505e06b2/Chiaki-TV). ARM varianty obsahují opravu odemčení audio dekodéru po nedostupném vstupním bufferu a potlačení přehrávání pomocného Remote Play zvuku; zdrojové patche, testy a postup sestavení jsou v [`native/README.md`](native/README.md). x86 varianty zůstávají původní.
-- `app/src/main/jniLibs/*/libchiaki-pc.so`: kopie výše uvedené `libchiaki-jni.so` s **jedinou změnou** – závislost `libmediandk.so` je přejmenovaná na `libpcobraz1.so` (stejně dlouhý název v tabulce dynamických řetězců). Používá se jen na telefonu.
+- `app/src/main/jniLibs/*/libchiaki-pc.so`: kopie výše uvedené `libchiaki-jni.so` s **jedinou změnou** – závislost `libmediandk.so` je přejmenovaná na `libpcobraz1.so` (stejně dlouhý název v tabulce dynamických řetězců). Načítá se přednostně; `libchiaki-jni.so` zůstává jako záloha, když se načíst nepodaří.
 - `app/src/main/jniLibs/*/libpcobraz1.so`: vlastní mezivrstva PlayCaption (AGPLv3) mezi Chiaki a systémovým dekodérem, předává obraz z PS5 přímo do paměti. Zdrojový kód: [`native/pcobraz.c`](native/pcobraz.c).
 - `app/src/main/java/com/metallic/chiaki/lib/Chiaki.kt`: převzato z Chiaki 2.1.1 (AGPLv3), upraveno (odstraněno Parcelable) – popis úprav je v hlavičce souboru.
 
@@ -63,14 +61,10 @@ Podporu LG webOS a Příběhový režim napsal **Rudolf Nohal**, který se podí
 - [Výchozí audit větví, testů a měření](docs/P0-VYCHOZI-STAV.md)
 - [Reprodukovatelný OCR benchmark](tools/ocr/README.md)
 
-[Příběhový režim](docs/PRIBEHOVY-REZIM.md) je volitelný režim pro telefon/tablet (s LG přijímačem 0.2.1+, Samsung přijímačem 1.3.0+, aktualizovaným Android TV přijímačem nebo přímo na telefonu). Zapíná se na obrazovce překladu v telefonu/tabletu; výchozí Standardní režim zůstává zachovaný. Skládání rozdělených vět je zatím experimentální.
+[Příběhový režim](docs/PRIBEHOVY-REZIM.md) je volitelný režim pro telefon/tablet (s LG přijímačem 0.2.1+, Samsung přijímačem 1.3.0+ nebo přímo na telefonu). Zapíná se na obrazovce překladu v telefonu/tabletu; výchozí Standardní režim zůstává zachovaný. Skládání rozdělených vět je zatím experimentální.
 
-Story výstup do TV se používá až po potvrzení podpory přijímačem. Pro Android TV
-v režimu „S telefonem“ je nutná aktualizace telefonu i TV na sestavení s touto
-podporou. Starší přijímač bez potvrzení dál dostává Standardní titulky. Nový Android
-přijímač stránkuje podle skutečného boxu a potvrzuje dočtení, nikoli jen příjem paketu.
-Rozšíření je zatím nevydané a čeká na fyzickou přejímku TCL. Režim „Jen televize“
-tím nový přepínač Story nezískává.
+Story výstup do TV se používá až po potvrzení podpory přijímačem. Starší přijímač
+bez potvrzení dál dostává Standardní titulky.
 
 ## Licence
 
@@ -86,8 +80,8 @@ Licence AGPLv3 se vztahuje na zdrojový kód, ne na název a logo. Název **Play
 
 Stav spojení rozlišuje běh služby, spojení s konzolí a skutečný příjem snímků.
 Zvolená TV ani úspěšné odeslání UDP dat nepotvrzují jejich přijetí nebo zobrazení;
-aplikace to u výstupu výslovně uvádí. Aktuální chybu sítě a na Android TV také
-chybu překryvu najdeš na stavové obrazovce a v nabídce **Záznam**.
+aplikace to u výstupu výslovně uvádí. Aktuální chybu sítě najdeš na stavové
+obrazovce a v nabídce **Záznam**.
 Běžná obrazovka ukazuje stručné shrnutí; technické podrobnosti patří do Záznamu.
 
 Vyber LG webOS a projdi průvodcem. Jedno spárování slouží k instalaci, kontrole

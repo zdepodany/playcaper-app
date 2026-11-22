@@ -8,8 +8,8 @@ class TelefonPozadiTest {
         assertTrue(TelefonPozadi.pokracovatNaLg(true, "192.168.1.20", TvPlatforma.WEBOS))
     }
 
-    @Test fun androidTvLocalSamsungAndUnknownKeepOriginalStopPolicy() {
-        for (platforma in listOf(TvPlatforma.ANDROID_TV, TvPlatforma.SAMSUNG, TvPlatforma.NEZNAMA, null)) {
+    @Test fun localSamsungAndUnknownKeepOriginalStopPolicy() {
+        for (platforma in listOf(TvPlatforma.SAMSUNG, TvPlatforma.NEZNAMA, null)) {
             assertFalse(TelefonPozadi.pokracovatNaLg(true, "192.168.1.20", platforma))
         }
     }

@@ -35,7 +35,7 @@ internal class SamsungPruvodceStav(ulozeny: Int) {
 
 /**
  * Samsung průvodce: Developer Mode, instalace a ověření přijímače.
- * Samostatný od LG (žádný Key Server, SSH ani webOS služby) i od původní Android TV.
+ * Samostatný od LG (žádný Key Server, SSH ani webOS služby).
  */
 class SamsungPruvodce(private val activity: Activity, private val vyhledej: () -> Unit) {
     private val prefs = activity.getSharedPreferences("samsung_pruvodce", Activity.MODE_PRIVATE)

@@ -5,15 +5,12 @@ import android.content.SharedPreferences
 import java.security.MessageDigest
 
 enum class TvPlatforma {
-    NEZNAMA, ANDROID_TV, WEBOS, SAMSUNG;
-
-    /** LG a Samsung jen zobrazují titulky; přihlášení ke konzoli telefonu předat neumějí. */
-    val jenZobrazovac get() = this == WEBOS || this == SAMSUNG
+    NEZNAMA, WEBOS, SAMSUNG
 }
 
 data class TvProfil(val id: String, val jmeno: String, val ip: String, val platforma: TvPlatforma)
 
-/** Profily patří odesílajícímu telefonu; místní Android TV používá původní nastavení. */
+/** Profily patří odesílajícímu telefonu; bez vybrané TV se použije původní nastavení. */
 class TvProfily internal constructor(
     private val prefs: SharedPreferences,
     private val puvodni: SharedPreferences,
@@ -49,11 +46,6 @@ class TvProfily internal constructor(
         SamsungPrijimac.jeSamsung(id) -> TvPlatforma.SAMSUNG
         else -> najdi(id)?.platforma ?: TvPlatforma.NEZNAMA
     }
-
-    /** LG ani Samsung přihlášení ke konzoli nepředávají; handshake zůstává jen pro Android TV. */
-    fun muzePrevzitSparovani(tv: Propojeni.Televize): Boolean =
-        !platformaPrijimace(tv.id).jenZobrazovac &&
-            (tv.id != "rucne" || seznam().none { it.ip == tv.ip && platformaPrijimace(it.id).jenZobrazovac })
 
     fun zapamatuj(id: String, jmeno: String, ip: String, zvolena: TvPlatforma? = null): TvProfil {
         val stary = najdi(id)
@@ -104,7 +96,7 @@ class TvProfily internal constructor(
         private val KLICE = setOf("tvX", "tvY", "tvSirka", "tvPismo", "rozvrhZamek", "volbyZap", "volbyUkazat", "volbyZamek", "volbyRezimText", "volbyL", "volbyT", "volbyR", "volbyB", "titRucne", "titZamek", "titL", "titT", "titR", "titB")
         fun nastaveni(c: Context): SharedPreferences {
             val id = aktivniId
-            return if (id != null && Rezim.jeTelefon(c)) TvProfily(c).nastaveni(id)
+            return if (id != null) TvProfily(c).nastaveni(id)
                 else c.getSharedPreferences("gamelingo", Context.MODE_PRIVATE)
         }
     }

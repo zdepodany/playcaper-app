@@ -2,7 +2,6 @@ package cz.titulky.tv
 
 import android.app.Activity
 import android.app.Dialog
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -18,7 +17,7 @@ import java.io.File
 
 /** Diagnostika – záznam (pád, titulky.log, chiaki.log) přes celou obrazovku – stačí vyfotit a poslat. */
 object Zaznam {
-    /** Celý text záznamu (pád, stav, titulky.log, xbox.log, chiaki.log). */
+    /** Celý text záznamu (pád, stav, titulky.log, chiaki.log). */
     fun obsah(a: Activity): String {
         fun konec(jmeno: String, radku: Int): String = runCatching {
             val f = File(a.filesDir, jmeno)
@@ -40,40 +39,35 @@ object Zaznam {
             val f = File(a.filesDir, "titulky.log")
             if (!f.exists()) return@runCatching "(nic)"
             val klice = listOf("připojuji", "PŘIPOJENO", "UKONČENO", "žádný obraz", "převz", "odpoj", "Hotovo – hrát",
-                "Xbox:", "staré spojení", "kodek", "obraz: ", "jiné zařízení", "ukončeno v aplikaci", "[LG příjem]")
+                "staré spojení", "kodek", "obraz: ", "jiné zařízení", "ukončeno v aplikaci", "[LG příjem]")
             f.readLines().filter { r -> klice.any { it in r } }.takeLast(30).joinToString("\n").ifBlank { "(nic)" }
         }.getOrDefault("(nejde přečíst)")
         fun diagnostikaPs5(): String = runCatching {
             val f = File(a.filesDir, "titulky.log")
             if (!f.exists()) "(nic)" else f.readLines()
-                .filter { "[PS5 " in it || "[obraz:" in it || "[TV příjem]" in it }
+                .filter { "[PS5 " in it || "[obraz:" in it }
                 .takeLast(100).joinToString("\n").ifBlank { "(nic)" }
         }.getOrDefault("(nejde přečíst)")
         val verze = runCatching { a.packageManager.getPackageInfo(a.packageName, 0).versionName }.getOrNull()
         val jazyk = Nastaveni(a).jazykNeboCs
-        val prijem = PrijemService.prehled()
         val stavy = "\nObraz: " + Texty.spojeni(jazyk, RemotePlayService.prehledSpojeni(), podrobne = true) +
             "\nVýstup: " + (if (Propojeni.Vysilac.cilIp == null) "toto zařízení" else
-                Propojeni.Vysilac.cilJmeno + " · " + Texty.prenos(jazyk, Propojeni.Vysilac.stavPrenosu, podrobne = true)) +
-            (if (PrijemService.bezi || prijem.uroven == UrovenSpojeni.CHYBA) "\nTV příjem: " + Texty.spojeni(jazyk, prijem, podrobne = true) else "") +
-            OverlayService.chyba?.let { "\nPřekryv: " + Texty.spojeni(jazyk, it, podrobne = true) }.orEmpty()
+                Propojeni.Vysilac.cilJmeno + " · " + Texty.prenos(jazyk, Propojeni.Vysilac.stavPrenosu, podrobne = true))
         val obsah = "Verze: $verze   Stav: ${RemotePlayService.stav}" + stavy + "\n\n=== pád ===\n" + konec("pad.txt", 25) +
             "\n\n=== spojení (připojení / odpojení) ===\n" + spojeni() +
-            "\n\n=== PS5 / obraz / příjem z telefonu ===\n" + diagnostikaPs5() +
+            "\n\n=== PS5 / obraz ===\n" + diagnostikaPs5() +
             "\n\n=== titulky.log ===\n" + konec("titulky.log", 120) +
-            "\n\n=== xbox.log ===\n" + konec("xbox.log", 15) +
             "\n\n=== chiaki.log ===\n" + chiaki()
         return obsah
     }
 
-    /** Diagnostika přes celou obrazovku: šipky ▲▼ posouvají záznam, ZPĚT zavře. */
-    fun ukaz(a: Activity, sVyvojem: Boolean = false) {
+    /** Diagnostika přes celou obrazovku, ZPĚT zavře. */
+    fun ukaz(a: Activity) {
         val obsah = obsah(a)
         val jazyk = Nastaveni(a).jazykNeboCs
         fun t(k: String) = Texty.t(jazyk, k)
         val d = a.resources.displayMetrics.density
         fun px(x: Int) = (x * d).toInt()
-        val telefon = Rezim.jeTelefon(a)
         val dlg = Dialog(a, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         val zluta = Color.parseColor("#FFC24B")
         val seda = Color.parseColor("#A8A8B3")
@@ -90,7 +84,7 @@ object Zaznam {
         val pozice = TextView(a).apply { textSize = 13f; setTextColor(seda) }
         val zaznamText = TextView(a).apply {
             this.text = obsah
-            textSize = if (telefon) 11f else 13f
+            textSize = 11f
             typeface = Typeface.MONOSPACE
             setTextColor(Color.parseColor("#D8D8E0"))
             setLineSpacing(0f, 1.2f)
@@ -142,38 +136,34 @@ object Zaznam {
         val koren = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
-            setPadding(px(if (telefon) 16 else 40), px(if (telefon) 24 else 28), px(if (telefon) 16 else 40), px(if (telefon) 16 else 24))
+            setPadding(px(16), px(24), px(16), px(16))
         }
         val hlava = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val nadpisy = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
         nadpisy.addView(TextView(a).apply {
-            this.text = t("diagNadpis"); textSize = if (telefon) 22f else 26f
+            this.text = t("diagNadpis"); textSize = 22f
             typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.08f; setTextColor(Color.WHITE)
         })
         nadpisy.addView(TextView(a).apply { this.text = t("diagPopis"); textSize = 13f; setTextColor(seda) })
         hlava.addView(nadpisy, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        if (!telefon) hlava.addView(pozice)
         koren.addView(hlava)
         koren.addView(posuv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply { topMargin = px(14) })
 
         val pata = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         pata.addView(TextView(a).apply {
-            this.text = if (telefon) t("diagOvladaniTel") else t("diagOvladani")
+            this.text = t("diagOvladaniTel")
             textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setTextColor(zluta)
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         val tlacitka = mutableListOf<View>()
         tlacitka += tlacitko(t("diagZacatek")) { posuv.smoothScrollTo(0, 0); posuv.requestFocus() }
         tlacitka += tlacitko(t("diagKonec")) { posuv.post { posuv.fullScroll(View.FOCUS_DOWN) } }
-        if (sVyvojem) tlacitka += tlacitko("Vývoj") { dlg.dismiss(); a.startActivity(Intent(a, VyvojActivity::class.java)) }
         tlacitka += tlacitko(t("diagZavrit")) { dlg.dismiss() }
         tlacitka.forEach { b ->
             pata.addView(b, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = px(10) })
         }
-        if (telefon) {
-            // telefon: nápověda nad tlačítky, ať se vejde
-            pata.orientation = LinearLayout.VERTICAL
-            pata.gravity = Gravity.END
-        }
+        // nápověda nad tlačítky, ať se vejde
+        pata.orientation = LinearLayout.VERTICAL
+        pata.gravity = Gravity.END
         koren.addView(pata, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = px(12) })
 
         dlg.setContentView(koren)

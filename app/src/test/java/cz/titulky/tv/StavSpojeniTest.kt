@@ -109,16 +109,6 @@ class StavSpojeniTest {
         assertEquals("tvOdesilanoNeovereno", stav.stav.klic)
     }
 
-    @Test fun receiverDoesNotConfuseHeartbeatWithWorkingOverlay() {
-        val permission = PrehledSpojeni("prekryvPovoleni", UrovenSpojeni.CHYBA)
-        assertEquals(permission, prehledPrijmu(true, null, permission, false, false))
-        assertEquals("prijemChyba", prehledPrijmu(true, "BindException", null, true, false).klic)
-        assertEquals("prekryvCeka", prehledPrijmu(true, null, null, false, false).klic)
-        assertEquals("prijemSkryty", prehledPrijmu(true, null, null, true, true).klic)
-        assertEquals(UrovenSpojeni.OK, prehledPrijmu(true, null, null, true, false).uroven)
-        assertEquals(UrovenSpojeni.CEKANI, prehledPrijmu(false, null, null, true, false).uroven)
-    }
-
     @Test fun statusKeepsWholeReasonAndDistinguishesDataFromDeliveryInBothLanguages() {
         val reason = "PS5 používá jiné zařízení. " + "Konkrétní důvod. ".repeat(10)
         assertTrue(Texty.spojeni("cs", PrehledSpojeni("stavNavazuji", UrovenSpojeni.CEKANI, reason), podrobne = true).endsWith(reason))
@@ -146,8 +136,5 @@ class StavSpojeniTest {
         assertTrue(ui.contains("Zkontroluj vybranou TV a její IP"))
         assertFalse(ui.contains("Exception"))
         assertTrue(Texty.prenos("cs", error, podrobne = true).contains("UnknownHostException"))
-        val overlay = PrehledSpojeni("prekryvOkno", UrovenSpojeni.CHYBA, "titulky: BadTokenException")
-        assertFalse(Texty.spojeni("cs", overlay).contains("Exception"))
-        assertTrue(Texty.spojeni("cs", overlay, podrobne = true).contains("BadTokenException"))
     }
 }

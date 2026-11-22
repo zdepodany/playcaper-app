@@ -39,7 +39,7 @@ internal class LgPruvodceStav(ulozeny: Int) {
     companion object { const val POSLEDNI = 4 }
 }
 
-/** LG průvodce s místním instalátorem; běžný Android TV průvodce zůstává beze změny. */
+/** LG průvodce s místním instalátorem přijímače. */
 class LgPruvodce(private val activity: Activity, private val vyhledej: () -> Unit) {
     private val prefs = activity.getSharedPreferences("lg_pruvodce", Activity.MODE_PRIVATE)
     private val stav = LgPruvodceStav(prefs.getInt("krok", 0))

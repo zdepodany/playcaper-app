@@ -2,9 +2,7 @@ package cz.titulky.tv
 
 import android.os.Build
 import android.view.View
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,7 +22,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
@@ -32,7 +29,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -62,21 +58,14 @@ import kotlinx.coroutines.delay
 
 /**
  * Telefon / tablet: obrazovky v Jetpack Compose s Material 3 (dynamické barvy Material You).
- * Televize zůstává na původním UI z Views (ovládání šipkami).
  */
 
-/** Stav spojení a konzolí; druh řádku konzole: ready / wait / chyba / neutral / off. */
+/** Stav spojení a PS5; druh řádku konzole: ready / wait / chyba / neutral / off. */
 internal data class StavDomu(
     val uroven: UrovenSpojeni,
     val nadpis: String,
     val podtext: String,
-    val sluzba: Boolean,
-    val hrajuXbox: Boolean,
-    val xboxSparovan: Boolean,
-    val naXboxu: Boolean,
     val ps: Pair<String, String>,
-    val xbox: Pair<String, String>,
-    val ukazPrepnout: Boolean,
 )
 
 internal enum class TonTv { NEUTRALNI, PRENOS, CHYBA }
@@ -134,16 +123,13 @@ private fun Nadpis(text: String) = Text(
 
 // ---------------------------------------------------------------------------------- Domů
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun DomuObrazovka(
     t: (String) -> String,
     nazevAplikace: String, verze: String,
     stavNactiti: () -> StavDomu,
-    nalezenaTv: Boolean, umiPrevzit: Boolean,
-    naLogo: () -> Unit, naLogoDlouze: () -> Unit,
-    naPs: () -> Unit, naXbox: () -> Unit, naPrevzit: () -> Unit,
-    naPrepnout: () -> Unit, naHrat: () -> Unit,
+    naLogo: () -> Unit,
+    naPs: () -> Unit, naHrat: () -> Unit,
 ) {
     // stav spojení se čte každou vteřinu (jako dřív pruh na hlavní obrazovce)
     var stav by remember { mutableStateOf(stavNactiti()) }
@@ -152,7 +138,7 @@ internal fun DomuObrazovka(
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             nazevAplikace, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f).combinedClickable(onClick = naLogo, onLongClick = naLogoDlouze),
+            modifier = Modifier.weight(1f).clickable(onClick = naLogo),
         )
         Text(verze, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
     }
@@ -161,19 +147,6 @@ internal fun DomuObrazovka(
 
     Nadpis(t("hlKonzole"))
     KonzoleRadek("PlayStation", stav.ps, t, naPs)
-    Spacer(Modifier.height(8.dp))
-    KonzoleRadek("Xbox", stav.xbox, t, naXbox)
-    if (umiPrevzit) {
-        Spacer(Modifier.height(8.dp))
-        FilledTonalButton(onClick = naPrevzit, modifier = Modifier.fillMaxWidth()) { Text(t("prevzitZTv")) }
-        if (nalezenaTv) Text(
-            t("pridatNalezenaTv"), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp),
-        )
-    }
-    if (stav.ukazPrepnout) OutlinedButton(
-        onClick = naPrepnout, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    ) { Text(if (stav.hrajuXbox) "⇄ Xbox" else "⇄ PlayStation") }
 
     Spacer(Modifier.height(24.dp))
     Button(onClick = naHrat, modifier = Modifier.fillMaxWidth().height(64.dp)) {

@@ -2,8 +2,6 @@ package cz.titulky.tv
 
 import android.content.Context
 import android.net.wifi.WifiManager
-import android.os.Build
-import android.provider.Settings
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -14,7 +12,8 @@ import java.net.SocketTimeoutException
  * Režim "telefon čte, televize ukazuje".
  *
  * Telefon se připojí k PS5, čte a překládá titulky (to je rychlé) a hotový český text posílá
- * po domácí síti do televize. Televize se k PS5 nepřipojuje, jen titulky zobrazuje přes obraz.
+ * po domácí síti do televize (přijímač na LG webOS / Samsung Tizen). Televize se k PS5
+ * nepřipojuje, jen titulky zobrazuje přes obraz.
  *
  *  - televize každé 2 s ohlásí do sítě "jsem tu" (PORT_HLEDANI) → telefon ji najde v seznamu
  *  - telefon posílá titulky přímo na adresu televize (PORT_TITULKY)
@@ -31,13 +30,8 @@ object Propojeni {
     /** Modrý rámeček ruční oblasti titulků: PCO1, ukázat 0/1, oblast (4 čísla). */
     private const val OBLAST = "PCO1"
     /**
-     * Převzetí spárování s PS5 od televize (telefon nemusí znovu přihlašovat účet ani zadávat PIN z PS5):
-     * PCS1 ZADOST → televize ukáže 4místný kód → PCS1 KOD <kód> → televize pošle údaje (DATA).
-     */
-    private const val SPAROVANI = "PCS1"
-    /**
      * U+2063 (neviditelný oddělovač) na začátku textu titulku = vzhled GTA VI na LG/Samsung přijímači.
-     * Starší přijímače ho jen nezobrazí; Android TV přijímač ho odstraní.
+     * Starší přijímače ho jen nezobrazí.
      */
     const val ZNACKA_GTA = "\u2063"
 
@@ -45,256 +39,17 @@ object Propojeni {
     fun sVzhledem(text: String, gta: Boolean = Volby.gta) = if (gta && text.isNotEmpty()) ZNACKA_GTA + text else text
     fun bezVzhledu(text: String) = text.removePrefix(ZNACKA_GTA)
 
-    /** Jméno televize, jak ho uvidí telefon v seznamu. */
-    fun jmenoZarizeni(c: Context): String =
-        runCatching { Settings.Global.getString(c.contentResolver, "device_name") }.getOrNull()
-            ?.takeIf { it.isNotBlank() } ?: "${Build.MANUFACTURER} ${Build.MODEL}".trim()
-
     private fun zamekSite(c: Context) = runCatching {
         (c.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager)
             .createMulticastLock("playcaption-propojeni").apply { setReferenceCounted(false); acquire() }
     }.getOrNull()
 
-    /**
-     * „+ Přidat Android zařízení“ na televizi: kód je vidět v okně na televizi předem (3 min).
-     * Telefon pak jen najde televizi a kód opíše – televize kód sama neukazuje přes obraz.
-     */
-    object Pridani {
-        @Volatile var kod: String? = null
-        @Volatile var platiDo = 0L
-        @Volatile var pokusu = 0
-        /** Telefon (jméno) úspěšně převzal spárování – volá se z vlákna sítě. */
-        @Volatile var hotovo: ((String) -> Unit)? = null
-        fun platny() = kod != null && System.currentTimeMillis() <= platiDo
-        fun novy(): String {
-            val k = (1000..9999).random().toString()
-            kod = k; platiDo = System.currentTimeMillis() + 180_000; pokusu = 0
-            return k
-        }
-        fun zrus() { kod = null; hotovo = null }
-    }
-
-    // ================================================================ TELEVIZE (přijímá)
-
-    /**
-     * Televize: ohlašuje se do sítě a přijímá titulky z telefonu.
-     * [priTitulku] dostane (text, doba v ms, nápověda) – volá se z vlákna sítě.
-     */
-    internal class Prijimac(
-        context: Context,
-        private val priTitulku: (String, Long, String, FloatArray?, IntArray?) -> Unit,
-        /** (české volby, která je vybraná (-1 = nevíme), oblast voleb, rámeček: 0 = ne, 1 = chvíli, 2 = trvale) */
-        private val priVolbach: ((List<String>, Int, FloatArray, Int) -> Unit)? = null,
-        /** (oblast titulků, ukázat modrý rámeček) */
-        private val priOblasti: ((FloatArray, Boolean) -> Unit)? = null,
-        /** Kód pro převzetí spárování telefonem – ukázat na televizi ("" = schovat). */
-        private val priKoduSparovani: ((String) -> Unit)? = null,
-        /** ACK až po zpracování překryvem, ne pouhým přijetím datagramu. */
-        private val priPribehu: ((PribehProtokol.Titulek, (String) -> Unit) -> Unit)? = null
-    ) {
-        @Volatile private var bezi = true
-        private val c = context.applicationContext
-        private val zamek = zamekSite(c)
-        private var socket: DatagramSocket? = null
-        private val jmeno = jmenoZarizeni(c).replace("\t", " ")
-
-        /** Kdy naposledy přišla zpráva od telefonu (0 = ještě nikdy). */
-        @Volatile var posledniZprava = 0L
-            private set
-        @Volatile var chyba: String? = null
-            private set
-        private var posledniCislo = -1L
-        private var posledniCisloVoleb = -1L
-        // převzetí spárování telefonem
-        private var kodSparovani: String? = null
-        private var kodPlatiDo = 0L
-        private var pokusuKodu = 0
-        private var jmenoTelefonu = ""
-
-        private fun odpovez(s: DatagramSocket, p: DatagramPacket, text: String) {
-            val d = text.toByteArray(Charsets.UTF_8)
-            runCatching { s.send(DatagramPacket(d, d.size, p.address, p.port)) }
-        }
-
-        /** Telefon chce převzít spárování s PS5 – jen s kódem, který je vidět na televizi. */
-        private fun sparovani(s: DatagramSocket, p: DatagramPacket, casti: List<String>) {
-            val u = RemotePlayUdaje(c)
-            val ted = System.currentTimeMillis()
-            when (casti.getOrNull(1)) {
-                "ZADOST" -> {
-                    if ((!u.sparovano || u.accountId == null) && XboxUcet.konzole(c) == null) { odpovez(s, p, "$SPAROVANI\tCHYBA\tnesparovano"); return }
-                    jmenoTelefonu = casti.getOrNull(2)?.trim().orEmpty()
-                    // kód už svítí v okně „Přidat Android zařízení“ → jen říct telefonu, ať ho opíše
-                    if (Pridani.platny()) { odpovez(s, p, "$SPAROVANI\tKOD"); return }
-                    // nový kód jen když starý už neplatí (telefon žádost posílá víckrát)
-                    if (kodSparovani == null || ted > kodPlatiDo) {
-                        kodSparovani = (1000..9999).random().toString()
-                        pokusuKodu = 0
-                    }
-                    kodPlatiDo = ted + 180_000
-                    priKoduSparovani?.invoke(kodSparovani!!)
-                    odpovez(s, p, "$SPAROVANI\tKOD")
-                }
-                "KOD" -> {
-                    val zadany = casti.getOrNull(2)?.trim()
-                    fun b64p(b: ByteArray?) = b?.let { android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP) } ?: ""
-                    // kód z okna „Přidat Android zařízení“
-                    if (Pridani.platny()) {
-                        if (zadany != Pridani.kod) {
-                            Pridani.pokusu++
-                            if (Pridani.pokusu >= 5) Pridani.kod = null
-                            odpovez(s, p, "$SPAROVANI\tCHYBA\tkod")
-                            return
-                        }
-                        val hotovo = Pridani.hotovo
-                        Pridani.kod = null
-                        odpovez(s, p, "$SPAROVANI\tDATA\t${u.accountId}\t${u.ipKonzole}\t${b64p(u.registKey)}\t${b64p(u.rpKey)}" + XboxUcet.proPredani(c))
-                        hotovo?.invoke(jmenoTelefonu.ifBlank { "Android" })
-                        return
-                    }
-                    val kod = kodSparovani
-                    if (kod == null || ted > kodPlatiDo || zadany != kod) {
-                        pokusuKodu++
-                        if (pokusuKodu >= 5) { kodSparovani = null; priKoduSparovani?.invoke("") }
-                        odpovez(s, p, "$SPAROVANI\tCHYBA\tkod")
-                        return
-                    }
-                    kodSparovani = null
-                    priKoduSparovani?.invoke("")
-                    fun b64(b: ByteArray?) = b?.let { android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP) } ?: ""
-                    odpovez(s, p, "$SPAROVANI\tDATA\t${u.accountId}\t${u.ipKonzole}\t${b64(u.registKey)}\t${b64(u.rpKey)}" + XboxUcet.proPredani(c))
-                }
-            }
-        }
-
-        init {
-            // ohlašování "jsem tu"
-            Thread {
-                runCatching {
-                    DatagramSocket().use { s ->
-                        s.broadcast = true
-                        val kam = InetAddress.getByName("255.255.255.255")
-                        while (bezi) {
-                            // 4. pole: je televize spárovaná s PS5? (telefon podle toho schová / nechá přihlašování)
-                            val sp = if (RemotePlayUdaje(c).sparovano) "1" else "0"
-                            val data = "$OHLASENI\t${Predavani.mojeId}\t$jmeno\t$sp".toByteArray()
-                            runCatching { s.send(DatagramPacket(data, data.size, kam, PORT_HLEDANI)) }
-                            Thread.sleep(2000)
-                        }
-                    }
-                }
-            }.apply { isDaemon = true }.start()
-
-            // příjem titulků
-            Thread {
-                runCatching {
-                    val s = DatagramSocket(null).apply {
-                        reuseAddress = true
-                        soTimeout = 1000
-                        bind(InetSocketAddress(PORT_TITULKY))
-                    }
-                    socket = s
-                    val pribeh = PribehPrijem(priPribehu?.let { prijmi -> { titulek, ack ->
-                        if (bezi) prijmi(titulek) { stav -> if (bezi) ack(stav) }
-                    } }, { android.os.SystemClock.elapsedRealtime() })
-                    val buf = ByteArray(8192)
-                    while (bezi) {
-                        pribeh.odesliOdpovedi(s)
-                        val p = DatagramPacket(buf, buf.size)
-                        try { s.receive(p) } catch (e: SocketTimeoutException) { continue }
-                        val casti = String(p.data, 0, p.length, Charsets.UTF_8).split("\t")
-                        if (pribeh.zpracuj(p)) {
-                            pribeh.odesliOdpovedi(s)
-                            posledniZprava = System.currentTimeMillis()
-                            continue
-                        }
-                        if (casti.size >= 2 && casti[0] == SPAROVANI && casti[1] in listOf("ZADOST", "KOD")) {
-                            runCatching { sparovani(s, p, casti) }
-                            continue
-                        }
-                        if (casti.size >= 6 && casti[0] == OBLAST) {
-                            posledniZprava = System.currentTimeMillis()
-                            runCatching {
-                                val o = floatArrayOf(casti[2].toFloat(), casti[3].toFloat(), casti[4].toFloat(), casti[5].toFloat())
-                                priOblasti?.invoke(o, casti[1].trim() == "1")
-                            }
-                            continue
-                        }
-                        if (casti.size >= 9 && casti[0] == VOLBY) {
-                            posledniZprava = System.currentTimeMillis()
-                            val c = casti[1].toLongOrNull() ?: continue
-                            if (c == posledniCisloVoleb) continue
-                            posledniCisloVoleb = c
-                            runCatching {
-                                val oblast = floatArrayOf(casti[3].toFloat(), casti[4].toFloat(), casti[5].toFloat(), casti[6].toFloat())
-                                val text = odEscapuj(casti[8])
-                                val seznam = if (text.isBlank()) emptyList() else text.split("\n")
-                                priVolbach?.invoke(seznam, casti[7].toIntOrNull() ?: -1, oblast, casti[2].toIntOrNull() ?: 0)
-                            }
-                            continue
-                        }
-                        if (casti.size < 5 || casti[0] != TITULEK) continue
-                        posledniZprava = System.currentTimeMillis()
-                        val cislo = casti[1].toLongOrNull() ?: continue
-                        // stejná zpráva znovu (kontrolní opakování) → jen "telefon žije"
-                        if (cislo == posledniCislo) continue
-                        posledniCislo = cislo
-                        val doba = casti[2].toLongOrNull() ?: 6000L
-                        // vlastní poloha a velikost titulků z telefonu (střed X, spodní hrana Y, šířka, velikost písma,
-                        // 1 = právě se upravuje → ukázat rámeček)
-                        val rozvrh = if (casti.size >= 9 && !casti[5].startsWith("B:")) runCatching {
-                            val uprava = if (casti.getOrNull(9)?.trim() == "1") 1f else 0f
-                            floatArrayOf(casti[5].toFloat(), casti[6].toFloat(), casti[7].toFloat(), casti[8].toFloat(), uprava)
-                        }.getOrNull() else null
-                        // barvy jmen postav ("B:-16711936,0") – posílá telefon od verze 0.17
-                        val barvy = casti.drop(5).firstOrNull { it.startsWith("B:") }?.let { b ->
-                            runCatching { b.removePrefix("B:").trim().split(",").map { it.trim().toInt() }.toIntArray() }.getOrNull()
-                        }
-                        priTitulku(bezVzhledu(odEscapuj(casti[3])), doba, odEscapuj(casti[4]), rozvrh, barvy)
-                    }
-                }.onFailure { if (bezi) chyba = it.javaClass.simpleName }
-                runCatching { socket?.close() }
-            }.apply { isDaemon = true }.start()
-        }
-
-        fun zavri() {
-            bezi = false
-            runCatching { socket?.close() }
-            runCatching { zamek?.release() }
-        }
-    }
-
     // ================================================================ TELEFON (hledá a posílá)
 
-    /** [sparovano]: televize sama je spárovaná s PS5 (null = starší verze, neví se). */
+    /** [sparovano]: 4. pole ohlášení (LG/Samsung posílají 0; null = pole chybí). */
     data class Televize(val id: String, val jmeno: String, val ip: String, val sparovano: Boolean? = null,
         /** Verze přijímače, pokud ji ohlášení nese (Samsung od 1.3.0); jinak null = neznámá. */
         val verze: String? = null)
-
-    /**
-     * Telefon → televize: zpráva převzetí spárování a čekání na odpověď (víc pokusů, Wi-Fi ztrácí pakety).
-     * Vrací části odpovědi ("KOD", "DATA", …, "CHYBA", důvod) nebo null, když televize neodpověděla.
-     */
-    fun sparovaniDotaz(tv: Televize, zprava: String): List<String>? {
-        runCatching {
-            DatagramSocket().use { s ->
-                s.soTimeout = 1500
-                val data = "$SPAROVANI\t$zprava".toByteArray(Charsets.UTF_8)
-                val kam = InetAddress.getByName(tv.ip)
-                repeat(4) {
-                    s.send(DatagramPacket(data, data.size, kam, PORT_TITULKY))
-                    val buf = ByteArray(16384) // DATA s Xboxem je delší (přihlašovací token)
-                    val p = DatagramPacket(buf, buf.size)
-                    try {
-                        s.receive(p)
-                        val casti = String(p.data, 0, p.length, Charsets.UTF_8).split("\t")
-                        if (casti.size >= 2 && casti[0] == SPAROVANI) return casti.drop(1)
-                    } catch (e: SocketTimeoutException) { /* zkusit znovu */ }
-                }
-            }
-        }
-        return null
-    }
 
     /** Telefon: po dobu [doba] ms poslouchá ohlášení televizí a vrátí, co našel. */
     fun hledej(context: Context, doba: Long = 3500, hotovo: (List<Televize>) -> Unit) {
@@ -308,7 +63,7 @@ object Propojeni {
         }.apply { isDaemon = true }.start()
     }
 
-    /** Broadcast zůstává pro Android TV i starší LG; známé LG navíc ověříme přímo. */
+    /** Broadcast zůstává pro Samsung i starší LG; známé LG navíc ověříme přímo. */
     internal fun hledejVSiti(doba: Long, ulozene: List<Televize>): List<Televize> {
         val nalez = LinkedHashMap<String, Televize>()
         fun ted() = System.nanoTime() / 1_000_000

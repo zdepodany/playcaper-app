@@ -3,12 +3,12 @@ package cz.titulky.tv
 import java.nio.ByteBuffer
 
 /**
- * PS5 na telefonu: obraz přímo z dekodéru do paměti (bez grafického čipu), stejně jako u Xboxu.
+ * PS5: obraz přímo z dekodéru do paměti (bez grafického čipu).
  * Dělá to malá knihovna libpcobraz1.so, která sedí mezi Chiaki a systémovým dekodérem.
- * Na televizi se nepoužívá. Když něco nejde, obraz jde dál starou cestou přes OpenGL.
+ * Když něco nejde, obraz jde dál starou cestou přes OpenGL.
  */
 object PametObraz {
-    /** Načetla se upravená knihovna Chiaki (jen telefon) – nastavuje Chiaki.kt. */
+    /** Načetla se upravená knihovna Chiaki – nastavuje Chiaki.kt. */
     @Volatile var knihovnaPc = false
 
     /** Kam posílat snímky (vlákno dekodéru). */

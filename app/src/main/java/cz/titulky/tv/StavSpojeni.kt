@@ -3,16 +3,6 @@ package cz.titulky.tv
 internal enum class UrovenSpojeni { VYPNUTO, CEKANI, OK, CHYBA }
 internal data class PrehledSpojeni(val klic: String, val uroven: UrovenSpojeni, val detail: String = "", val stariSnimkuMs: Long? = null)
 
-internal fun prehledPrijmu(dataPrichazeji: Boolean, chybaSite: String?, chybaPrekryvu: PrehledSpojeni?,
-    prekryvPripraven: Boolean, skrytyMimoVstup: Boolean): PrehledSpojeni = when {
-    chybaSite != null -> PrehledSpojeni("prijemChyba", UrovenSpojeni.CHYBA, chybaSite)
-    chybaPrekryvu != null -> chybaPrekryvu
-    !dataPrichazeji -> PrehledSpojeni("prijemCekam", UrovenSpojeni.CEKANI)
-    !prekryvPripraven -> PrehledSpojeni("prekryvCeka", UrovenSpojeni.CEKANI)
-    skrytyMimoVstup -> PrehledSpojeni("prijemSkryty", UrovenSpojeni.CEKANI)
-    else -> PrehledSpojeni("prijemPripojen", UrovenSpojeni.OK)
-}
-
 /** Stav služby není důkaz spojení ani příjmu obrazu. Čas dodává volající, v testech simulovaný. */
 internal class StavObrazu {
     private var pripojenoOd: Long? = null

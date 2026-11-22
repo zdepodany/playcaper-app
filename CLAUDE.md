@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Co to je
 
-PlayCaption: Android aplikace (Kotlin), která přes Chiaki Remote Play (PS5) nebo WebRTC (Xbox) čte anglické titulky ze hry (OCR), překládá je do češtiny a zobrazuje je přes HDMI obraz na TV. Na LG webOS a Samsung Tizen běží jen „přijímač“ titulků (HTML/JS), který dostává hotový text z Android telefonu/tabletu po UDP. Dokumentace, komentáře i commity jsou česky.
+PlayCaption: Android aplikace (Kotlin) pro telefon/tablet, která přes Chiaki Remote Play (PS5) čte anglické titulky ze hry (OCR), překládá je do češtiny a zobrazuje je v telefonu, nebo je po UDP pošle „přijímači“ titulků (HTML/JS) na LG webOS či Samsung Tizen, který je ukáže přes HDMI obraz na TV. Fork podporu Xboxu a Android TV / Google TV odebral (oba uživatelé mají PS5, jeden Samsung a druhý LG TV). Dokumentace, komentáře i commity jsou česky.
 
 ## Fork a git workflow
 
@@ -37,18 +37,18 @@ Neexistuje lint ani formátovací krok (`lint` je v Gradle záměrně vypnutý).
 
 ## Architektura
 
-**Tok dat.** Konzole → HDMI → TV (uživatel hraje v plné kvalitě). Android aplikace paralelně získá druhou kopii obrazu přes Remote Play (`RemotePlay*.kt`, Chiaki; Xbox: `XboxSpojeni.kt`, `XboxUcet.kt`), z ní vyřízne oblast titulků a provede OCR (`Ctecka.kt`, `SnimekService.kt`, `GlSnimac.kt`, ML Kit; `StabilitaTextu.kt` stabilizuje postupně se objevující text), přeloží (`Prekladac.kt`: DeepL s vlastními klíči, Google, offline ML Kit; `PametPrekladu.kt` je trvalá paměť vět) a výsledek zobrazí buď přímo v Androidu (`OverlayService.kt`) nebo ho pošle přijímači na TV.
+**Tok dat.** Konzole → HDMI → TV (uživatel hraje v plné kvalitě). Android aplikace v telefonu paralelně získá druhou kopii obrazu přes Remote Play (`RemotePlay*.kt`, Chiaki), snímky bere přímo z dekodéru (`PametObraz.kt` + `libpcobraz1.so`, třídy `VideoFrame` z WebRTC) nebo přes OpenGL (`GlSnimac.kt`), vyřízne oblast titulků a provede OCR (`Ctecka.kt`, ML Kit; `StabilitaTextu.kt` stabilizuje postupně se objevující text), přeloží (`Prekladac.kt`: DeepL s vlastními klíči, Google, offline ML Kit; `PametPrekladu.kt` je trvalá paměť vět) a výsledek zobrazí v telefonu (`TelefonTitulky` v `Rezim.kt`, `TelefonActivity.kt`) nebo ho pošle přijímači na TV (`Propojeni.Vysilac`). UI telefonu je v Compose (`MainActivity.kt`, `TelefonUi.kt`, `TelefonPripojeni.kt`), obrazovka hraní `TelefonActivity.kt` zatím ve Views.
 
 **Režimy.** Standardní režim překládá okamžitě. Příběhový režim (`Pribeh*.kt`, `CteciFronta.kt`, `SkladaniVet.kt`, `CasovaniPribehu.kt`, popis v `docs/PRIBEHOVY-REZIM.md`) přidává čtecí frontu a skládání nedokončených vět. Režim titulků GTA VI s ikonami tlačítek u voleb: `RezimTitulku.kt`, `Volby.kt`, `IkonyVoleb.kt`. Příběhový výstup se používá jen po potvrzení podpory přijímačem.
 
-**Přijímače a protokol.** Telefon ↔ TV po UDP: TV se hlásí `PLAYCAPTION_TV` na port 41988 každé 2 s, telefon posílá na 41989 pakety `PCT1` (titulek), `PCV1` (volby), `PCO1` a Story `PCQ1`/`PCS1` s potvrzením `PCA1`. Definice na straně Androidu je `Propojeni.kt` (+ `Pribeh*.kt`), na straně TV `webos/service/protocol.js`; změna protokolu se musí udělat na obou stranách a v obou přijímačích.
+**Přijímače a protokol.** Telefon ↔ TV po UDP: TV se hlásí `PLAYCAPTION_TV` na port 41988 každé 2 s, telefon posílá na 41989 pakety `PCT1` (titulek), `PCV1` (volby), `PCO1` a Story `PCQ1`/`PCS1` s potvrzením `PCA1`. Definice na straně Androidu je `Propojeni.kt` (+ `Pribeh*.kt`; Android je jen odesílatel), na straně TV `webos/service/protocol.js`; změna protokolu se musí udělat na obou stranách a v obou přijímačích.
 - `webos/`: LG přijímač. `app/` je průhledné UI, `service/` Node.js služba přes `webos-service`. Aplikace nemá žádné npm závislosti.
 - `tizen/`: Samsung přijímač. `app/js/prijimac-ui.js` a `app/service/protocol.js` **vznikají kopírováním z `webos/` přes `tizen/sync.py`, neupravuj je ručně**. WGT je nepodepsaný (podpis je vázaný na konkrétní TV).
 - Android `Lg*.kt` / `Samsung*.kt` (průvodce, SSH instalace přes JSch, Developer Mode) instalují přibalený přijímač z `assets/lg/` a `assets/samsung/`, které generují Gradle úlohy `prepareLgReceiver` / `prepareSamsungReceiver` v `app/build.gradle.kts` (kontrolují manifest, SHA-256 a název souboru).
 
 **Kompatibilita starších TV (důležité pro LG).** Na webOS 3.x/4.x běží služby v Node.js 0.12 a UI v Chromiu 53: nepoužívej `Buffer.from`, `Array.prototype.find`, `String.prototype.trimEnd` a podobné novější API v `webos/service/` a `webos/app/`. Na webOS 4.4 zavře TV překryv po 120 s bez stisku ovladače (nevyřešeno). Podrobnosti zjištěné na LG 43UK6300 jsou ve `webos/TESTOVANI.md` a `webos/SHODA-ANDROID.md`.
 
-**Nativní vrstva.** `app/src/main/jniLibs/*/` obsahuje předsestavené `libchiaki-jni.so` (Chiaki 2.1.1 se dvěma patchi: `native/chiaki-audio-unlock.patch`, `chiaki-silent-audio.patch`), `libchiaki-pc.so` (kopie s přejmenovanou závislostí) a vlastní `libpcobraz1.so` (zdroj `native/pcobraz.c`). Normální vývoj je nepřestavuje; postup s NDK r21e je v `native/README.md`. `com/metallic/chiaki/lib/Chiaki.kt` je převzatý a upravený kód Chiaki (úpravy v hlavičce souboru).
+**Nativní vrstva.** `app/src/main/jniLibs/*/` obsahuje předsestavené `libchiaki-jni.so` (Chiaki 2.1.1 se dvěma patchi: `native/chiaki-audio-unlock.patch`, `chiaki-silent-audio.patch`), `libchiaki-pc.so` (kopie s přejmenovanou závislostí, načítá se přednostně, `libchiaki-jni.so` je záloha) a vlastní `libpcobraz1.so` (zdroj `native/pcobraz.c`). Normální vývoj je nepřestavuje; postup s NDK r21e je v `native/README.md`. `com/metallic/chiaki/lib/Chiaki.kt` je převzatý a upravený kód Chiaki (úpravy v hlavičce souboru).
 
 ## Konvence
 

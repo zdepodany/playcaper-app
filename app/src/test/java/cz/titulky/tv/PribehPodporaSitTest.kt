@@ -33,8 +33,8 @@ class PribehPodporaSitTest {
         assertTrue("Chybí platné potvrzení PCA1", sit.podporujePribeh)
     }
 
-    @Test fun lgSamsungIAndroidPoPca1PrejdouZeStandardnihoNaStory() {
-        for (platforma in listOf(TvPlatforma.WEBOS, TvPlatforma.SAMSUNG, TvPlatforma.ANDROID_TV)) {
+    @Test fun lgISamsungPoPca1PrejdouZeStandardnihoNaStory() {
+        for (platforma in listOf(TvPlatforma.WEBOS, TvPlatforma.SAMSUNG)) {
             DatagramSocket(Propojeni.PORT_TITULKY, InetAddress.getByName(ip)).use { tv ->
                 tv.soTimeout = 3000
                 PribehSpojeni(ip, cas = { System.nanoTime() / 1_000_000 }).use { sit ->

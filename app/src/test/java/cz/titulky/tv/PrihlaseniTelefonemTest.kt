@@ -104,7 +104,7 @@ class PrihlaseniTelefonemTest {
         val staryPokus = PsnPokus({ throw PsnHttpChyba("token", 400) }, { true }, spoustec)
         val stary = PrihlaseniTelefonem(true, staryPokus)
         staryPokus.prihlas("prosly-kod"); dokonci()
-        assertTrue(stary.stranka(true).contains("HTTP 400"))
+        assertTrue(stary.stranka().contains("HTTP 400"))
         val pokus = PsnPokus({ id }, { true }, spoustec)
         val server = PrihlaseniTelefonem(true, pokus)
         try {
@@ -151,20 +151,17 @@ class PrihlaseniTelefonemTest {
         } finally { server.zastav() }
     }
 
-    @Test fun qrPostupZachovaLanAdresuATvPotvrzeni() {
+    @Test fun strankaJeJenProTelefon() {
         val pokus = PsnPokus({ id }, { true }, spoustec)
         val server = PrihlaseniTelefonem(true, pokus)
-        val qr = server.stranka(mistni = false)
-        assertTrue(qr.contains("QR kód z televize znovu"))
-        assertTrue(qr.contains(PsnPrihlaseni.ADRESA_PRIHLASENI))
-        assertTrue(qr.contains("Vložit do televize"))
-        assertFalse(server.stranka(mistni = true).contains("Vložit do televize"))
-        pokus.prihlas("z-telefonu-do-tv"); dokonci()
-        assertTrue(server.stranka(mistni = false).contains("Účet je v televizi"))
-        assertTrue(server.stranka(mistni = true).contains("Účet je uložený"))
+        val html = server.stranka()
+        assertTrue(html.contains(PsnPrihlaseni.ADRESA_PRIHLASENI))
+        assertFalse(html.contains("televiz"))
+        pokus.prihlas("z-telefonu"); dokonci()
+        assertTrue(server.stranka().contains("Účet je uložený"))
     }
 
-    @Test fun qrPrihlaseniPoMistiSitiPotvrdiUlozeniVTelevizi() {
+    @Test fun strankaNeniVidetZDomaciSite() {
         val ip = java.net.NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isPointToPoint && !it.isVirtual }
             .flatMap { it.inetAddresses.toList() }
@@ -174,9 +171,11 @@ class PrihlaseniTelefonemTest {
         val server = PrihlaseniTelefonem(true, PsnPokus({ id }, { true }, spoustec))
         try {
             server.spust()
-            assertTrue(nacti(cesta("kod-z-qr", server), ip!!).contains("Ověřuji přihlášení"))
-            dokonci()
-            assertTrue(nacti("/stav", ip).contains("Účet je v televizi"))
+            assertTrue(nacti("/stav").contains("PlayCaption"))
+            val pripojeno = runCatching {
+                java.net.Socket().use { it.connect(java.net.InetSocketAddress(ip, PrihlaseniTelefonem.PORT), 300) }
+            }.isSuccess
+            assertFalse(pripojeno)
         } finally { server.zastav() }
     }
 
@@ -184,9 +183,9 @@ class PrihlaseniTelefonemTest {
         val pokus = PsnPokus({ throw java.net.SocketTimeoutException("secret-code") }, { true }, spoustec)
         val server = PrihlaseniTelefonem(false, pokus)
         pokus.prihlas("secret-code")
-        assertTrue(server.stranka(false).contains("Verifying your PlayStation"))
+        assertTrue(server.stranka().contains("Verifying your PlayStation"))
         dokonci()
-        val html = server.stranka(false)
+        val html = server.stranka()
         assertTrue(html.contains("Sony did not respond in time"))
         assertFalse(html.contains("secret-code"))
         assertFalse(html.contains("Done!"))
@@ -195,7 +194,7 @@ class PrihlaseniTelefonemTest {
     @Test fun obsazenyPortNeoznaciPrihlasovaciStrankuZaPripravenou() {
         val chyba = CountDownLatch(1)
         val pokus = PsnPokus({ id }, { true }, spoustec) { chyba.countDown() }
-        ServerSocket(PrihlaseniTelefonem.PORT).use {
+        ServerSocket(PrihlaseniTelefonem.PORT, 50, java.net.InetAddress.getLoopbackAddress()).use {
             val server = PrihlaseniTelefonem(true, pokus)
             try {
                 server.spust()
