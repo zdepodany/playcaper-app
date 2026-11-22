@@ -59,7 +59,7 @@ Podporu LG webOS a Příběhový režim napsal **Rudolf Nohal**, který se podí
 
 ## Vývoj a ověřování
 
-- [Priority a technický backlog P0–P6](docs/PLAN-VYVOJE.md)
+- [Roadmapa a priority P0–P6](ROADMAP.md)
 - [Výchozí audit větví, testů a měření](docs/P0-VYCHOZI-STAV.md)
 - [Reprodukovatelný OCR benchmark](tools/ocr/README.md)
 

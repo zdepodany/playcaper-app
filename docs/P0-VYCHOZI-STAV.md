@@ -1,6 +1,6 @@
 # P0: skutečný stav a výchozí měření
 
-15. 11. 2026. Navazuje na sjednocený plán uživatele; priority a malé úkoly jsou v [PLAN-VYVOJE.md](PLAN-VYVOJE.md). Příběhový režim je P2, nikoliv odměna za dokončení všech OCR optimalizací.
+15. 11. 2026. Navazuje na sjednocený plán uživatele; priority a malé úkoly jsou v [ROADMAP.md](../ROADMAP.md). Příběhový režim je P2, nikoliv odměna za dokončení všech OCR optimalizací.
 
 ## Checkout a rozsah
 

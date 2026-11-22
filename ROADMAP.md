@@ -1,6 +1,6 @@
-# PlayCaption: prioritizovaný technický backlog
+# PlayCaption: roadmapa a prioritizovaný technický plán (P0–P6)
 
-Aktualizace 15. 11. 2026 podle sjednoceného plánu uživatele. Podklady a výchozí měření: [P0-VYCHOZI-STAV.md](P0-VYCHOZI-STAV.md). Před změnou vždy znovu ověř checkout a špinavý strom.
+Aktualizace 15. 11. 2026 podle sjednoceného plánu uživatele. Podklady a výchozí měření: [P0-VYCHOZI-STAV.md](docs/P0-VYCHOZI-STAV.md). Před změnou vždy znovu ověř checkout a špinavý strom.
 
 **Cíl:** úplné a srozumitelné české titulky, zdarma, bez povinného PC/rootu. Standardní režim zachovat; volitelný Příběhový režim má přednost správnost → úplnost → čitelnost → pořadí → synchronizace.
 
@@ -67,7 +67,7 @@ Stavy: čeká / probíhá / dokončeno / blokováno. Dokončení úkolu není d�
 - **Problém/části:** čtecí fronta není síťová fronta překladače; LG zná skutečné stránky. Android/LG prezentace, `Propojeni`, `PlatnostPrekladu`.
 - **Závislosti:** P0-01/02, **ne dokončení P1/P3/P4**. **Řešení:** připravit `feature/story-mode` z P0 základu bez upstreamu; před integrací doplnit LG větev bez duplicit. Prověřit jednu čtecí frontu v Androidu a dokončení aktuálního cue přijímačem podle P0 návrhu.
 - **Testy/hotovo:** explicitní vlastník fronty, virtuální vstupy/výstupy, vyřešená vazba na poslední stránku a minimální kompatibilní přenos. **Riziko:** dvě nezávislé fronty nebo odhad času podle celého textu mohou znovu ztrácet stránky. P0 byl pouze návrh; navazující MVP už používá PCQ1/PCS1/PCA1 při zachovaném Standardním PCT1.
-- **Postup:** větev `feature/story-mode` aktivní. Android je jediný vlastník čtecí fronty; LG drží jedinou repliku, měří její stránky a potvrzuje dočtení. Přenos a dočtení prošly na C5. Viz [kontrakt fronty](PRIBEHOVY-REZIM.md).
+- **Postup:** větev `feature/story-mode` aktivní. Android je jediný vlastník čtecí fronty; LG drží jedinou repliku, měří její stránky a potvrzuje dočtení. Přenos a dočtení prošly na C5. Viz [kontrakt fronty](docs/PRIBEHOVY-REZIM.md).
 
 ### P2-02 · Identita repliky a její revize — dokončeno
 

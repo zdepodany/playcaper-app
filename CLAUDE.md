@@ -52,8 +52,8 @@ Neexistuje lint ani formátovací krok (`lint` je v Gradle záměrně vypnutý).
 
 ## Konvence
 
-- Při každé nové verzi zvyš `versionCode` + `versionName` v `app/build.gradle.kts` a dopiš změny do `ZMENY.md` (sekce „Nevydané změny“ → nová verze) a `CHANGELOG.md`.
-- Otevřená práce a rozhodnutí: `BACKLOG.md` (položky PC-xxx) a `docs/PLAN-VYVOJE.md` (P0–P6). Jak se věci ověřovaly na skutečných TV: `webos/TESTOVANI.md`, `docs/P0-VYCHOZI-STAV.md`.
+- Při každé nové verzi zvyš `versionCode` + `versionName` v `app/build.gradle.kts` a dopiš změny do `CHANGELOG.md` (sekce „Nevydané změny“ → nová verze).
+- Otevřená práce a rozhodnutí: `BACKLOG.md` (položky PC-xxx) a `ROADMAP.md` (P0–P6). Jak se věci ověřovaly na skutečných TV: `webos/TESTOVANI.md`, `docs/P0-VYCHOZI-STAV.md`.
 - Texty v UI jsou česky; síťové texty se v přijímačích vykreslují přes `textContent`, nikdy jako HTML.
 - Většina chování vyžaduje fyzickou přejímku na TV/konzoli; JVM a Node testy ji nenahrazují (v commitech a dokumentaci se rozlišuje „testy prošly“ a „ověřeno na zařízení“).
 - OCR benchmark používá oddělené `applicationId` přes `tools/ocr/isolated.gradle`, aby nepřepsal běžnou instalaci (viz `tools/ocr/README.md`).
