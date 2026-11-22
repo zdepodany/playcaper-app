@@ -550,10 +550,13 @@ class MainActivity : Activity() {
             co.addView(cara())
             co.addView(prepinac(t("prekryvat"), { nast.prekryvat }, { nast.prekryvat = it }, t("ano"), t("ne"), t("prekryvatPopis")))
         }
-        co.addView(cara())
         // menu a nápovědy se nepřekládají samy – v mobilní aplikaci si je každý přeloží žlutým rámečkem (Text)
         nast.napovedy = false
-        run {
+        if (telefon) {
+            // telefon: jen nenápadná poznámka, ne řádek, který vypadá jako nastavení bez přepínače
+            co.addView(text(t("napovedyHint"), 14f, TEXT2), odsazeni(top = 12))
+        } else run {
+            co.addView(cara())
             val r = svisle()
             r.addView(text(t("napovedy"), pismo(16f, 20f), Color.WHITE).jedenRadek(), plnaSirka())
             r.addView(text(if (telefon) t("napovedyTelefon") else t("napovedyJenMobil"), pismo(12f, 15f), TEXT2), odsazeni(top = 2))
@@ -577,20 +580,34 @@ class MainActivity : Activity() {
         if (telefon) {
             obsah.addView(logoRadek, odsazeni(bottom = 14))
             obsah.addView(stavRadek, odsazeni(bottom = 20))
-            obsah.addView(sekce(t("hlTel1")))
-            obsah.addView(konzole, odsazeni(bottom = 20))
-            obsah.addView(sekce(t("hlTel2")))
-            obsah.addView(jazykKarta, odsazeni(bottom = 20))
-            obsah.addView(sekce(t("hlTel3")))
-            obsah.addView(kartaVystupuTv(), odsazeni(bottom = 20))
-            obsah.addView(sekce(t("hlTel4")))
-            obsah.addView(co, odsazeni(bottom = 22))
-            obsah.addView(text(t("hratZmackni"), 19f, ZLUTA, tucne = true).apply { gravity = Gravity.CENTER }, odsazeni(bottom = 8))
+            // krátké nadpisy sekcí (místo číslovaných otázek průvodce)
+            obsah.addView(nadpisTel(t("hlKonzole")))
+            obsah.addView(konzole, odsazeni(bottom = 18))
+            obsah.addView(nadpisTel(t("hlJazyk")))
+            obsah.addView(jazykKarta, odsazeni(bottom = 18))
+            obsah.addView(nadpisTel(t("hlVystup")))
+            obsah.addView(kartaVystupuTv(), odsazeni(bottom = 18))
+            obsah.addView(nadpisTel(t("coPrekladat")))
+            obsah.addView(co, odsazeni(bottom = 24))
             obsah.addView(tlacitkoCervene(t("hratBtn")) {
                 if (nejakaKonzole) startActivity(Intent(this, TelefonActivity::class.java)) else ukazPripojeni()
             }.apply { textSize = 28f * SKALA; setPadding(dp(28), dp(18), dp(28), dp(18)) })
+            // patička: krátký tip a odkaz na zásluhy/licence (celý text v okně – Chiaki AGPLv3 v aplikaci zůstává)
+            tip.text = t("tipPripojeni").trimStart { !it.isLetterOrDigit() }
             obsah.addView(tip, odsazeni(top = 16))
-            obsah.addView(zasluhy, odsazeni(top = 10))
+            obsah.addView(text(t("oAplikaci") + "  ›", pismo(11f, 13f), TEXT2).apply {
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                setPadding(0, dp(10), 0, dp(10))
+                setOnClickListener {
+                    android.app.AlertDialog.Builder(this@MainActivity)
+                        .setTitle(t("oAplikaci"))
+                        .setMessage(t("zasluhy"))
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            }, odsazeni(top = 6))
             obnovTvKartu()
         } else {
             // televize: mřížka – levý a pravý sloupec mají v každém řádku stejnou výšku, vše v jedné rovině
@@ -677,17 +694,17 @@ class MainActivity : Activity() {
             setOnClickListener { vyberVystupTv() }
         }
         val popis = svisle()
-        tvNazev = text("", 21f, Color.WHITE, tucne = true).apply {
+        tvNazev = text("", 20f, Color.WHITE).apply {
             maxLines = 2
             ellipsize = android.text.TextUtils.TruncateAt.END
         }.also { popis.addView(it) }
-        tvPlatforma = text("", 14f, TEXT2).also { popis.addView(it, odsazeni(top = 4)) }
+        tvPlatforma = text("", 14f, TEXT2).also { popis.addView(it, odsazeni(top = 2)) }
         tvStav = text("", 15f, TEXT2).also { popis.addView(it, odsazeni(top = 6)) }
         popis.addView(LgDevModeView(this) {
             val p = TvProfily(this)
             if (p.pouzeTelefon && Propojeni.Vysilac.cilIp == null) null
             else (if (Propojeni.Vysilac.cilIp != null) TvProfily.aktivniId else p.posledniId)?.let { p.najdi(it) }
-        })
+        }.apply { textSize = 13f * SKALA })
         vystup.addView(popis, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(16) })
         vystup.addView(tlacitkoSede(t("tvZmenitKratce")) { vyberVystupTv() })
         return vystup
@@ -782,6 +799,12 @@ class MainActivity : Activity() {
     }
 
     /** Nadpis sekce na hlavní obrazovce (na televizi o něco menší, ať se vše vejde). */
+    /** Telefon: malý šedý nadpis sekce nad kartou. */
+    private fun nadpisTel(s: String) = text(s.uppercase(), 15f, TEXT2, tucne = true).apply {
+        letterSpacing = 0.08f
+        setPadding(dp(4), 0, 0, dp(8))
+    }
+
     private fun sekceMala(s: String) = sekce(s).apply { if (!telefon) textSize = 18f * SKALA }
 
     private fun obnovStav() {
@@ -1150,7 +1173,7 @@ class MainActivity : Activity() {
             posila -> Propojeni.Vysilac.cilJmeno.ifBlank { profil?.jmeno ?: t("tvZadnaVybrana") }
             lokalni -> t("tvJenZarizeni")
             else -> profil?.jmeno ?: t("tvZadnaVybrana")
-        }
+        }.let(::bezIdTv)
         tvPlatforma?.text = if (lokalni || profil == null) t("tvNastaveniPopis") else when (profil.platforma) {
             TvPlatforma.WEBOS -> "LG webOS"
             TvPlatforma.SAMSUNG -> "Samsung (Tizen)"
@@ -1160,12 +1183,16 @@ class MainActivity : Activity() {
         tvStav?.text = when {
             posila -> Texty.prenos(nast.jazykNeboCs, Propojeni.Vysilac.stavPrenosu)
             lokalni -> t("tvJenZde")
-            profil != null -> t("tvPripravena")
+            profil != null -> "" // vybraná TV bez přenosu – obecná věta navíc nic neříká
             else -> t("tvVyberVystup")
         }
+        tvStav?.visibility = if (tvStav?.text.isNullOrEmpty()) View.GONE else View.VISIBLE
         tvStav?.setTextColor(if (!posila) TEXT2 else if (Propojeni.Vysilac.stavPrenosu.chyba != null)
             Color.parseColor("#FF7272") else Color.parseColor("#FFC24B"))
     }
+
+    /** „LG PlayCaption · 41CCCAF73407“ → „LG PlayCaption“ (interní ID přijímače uživateli nic neříká). */
+    private fun bezIdTv(jmeno: String) = jmeno.replace(Regex("\\s*·\\s*[0-9A-Fa-f]{8,}$"), "")
 
     private var prepnoutBtn: TextView? = null
     private var xboxRadek: TextView? = null
