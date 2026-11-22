@@ -6,7 +6,9 @@ Při každé nové verzi se zvýší číslo v `app/build.gradle.kts` (versionCo
 
 ## Nevydané změny
 
-(zatím nic)
+- Výběr jazyka: nativní přepínače (`RadioGroup`) a tlačítko, ukazují se jen jazyky, které jdou vybrat (čeština, slovenština).
+- Odstraněno logo PlayCaption z úvodu a z nadpisů obrazovek; tam, kde logo sloužilo jako tlačítko diagnostického záznamu, je teď text „PlayCaper“.
+- Odstraněna uvítací obrazovka „Ahoj a vítej v PlayCaption!“ (po výběru jazyka se rovnou ukáže hlavní obrazovka).
 
 ## 0.22 (versionCode 35)
 

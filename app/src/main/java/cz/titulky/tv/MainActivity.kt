@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -23,10 +24,13 @@ import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 
@@ -61,9 +65,6 @@ class MainActivity : Activity() {
         // prázdné = QR kód se neukáže (doplnit odkaz ke stažení, např. Google Disk)
         const val STAHNOUT_URL = ""
         const val PODPORA_QR = "SPD*1.0*ACC:CZ0506000000000207980632*CC:CZK*MSG:PlayCaption podpora"
-        /** Odkaz na Facebook skupinu PlayCaption – testování. Prázdné = QR v uvítání se neukáže. */
-        const val SKUPINA_URL = ""
-        const val DOBA_BETA_MS = 9000L
         /** Jazyky, které jdou zatím vybrat (beta pro českou a slovenskou komunitu). */
         val AKTIVNI_JAZYKY = setOf("cs", "sk")
     }
@@ -133,10 +134,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setBackgroundColor(Color.BLACK)
-            addView(ImageView(this@MainActivity).apply {
-                setImageResource(R.drawable.logo)
-                adjustViewBounds = true
-            }, LinearLayout.LayoutParams(if (telefon) dp(380) else dp(520), ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(text(getString(R.string.app_name), if (telefon) 40f else 52f, Color.WHITE, tucne = true).apply { gravity = Gravity.CENTER })
             addView(drazka, LinearLayout.LayoutParams(dp(340), dp(10)).apply { topMargin = dp(36) })
         }
         setContentView(koren)
@@ -149,9 +147,7 @@ class MainActivity : Activity() {
                 bar.layoutParams = bar.layoutParams.apply { width = (drazka.width * podil).toInt() }
                 bar.requestLayout()
                 if (podil < 1f) ui.postDelayed(this, 30)
-                // poprvé: nejdřív výběr jazyka, uvítání až potom (ve zvoleném jazyce)
-                else if (nast.jazyk == null) ukazJazyk()
-                else if (maUkazatBetu()) ukazBetu() else pokracuj()
+                else pokracuj()
             }
         }
         ui.post(krok)
@@ -159,19 +155,10 @@ class MainActivity : Activity() {
 
     private fun pokracuj() { if (nast.jazyk == null) ukazJazyk() else ukazHlavni() }
 
-    // ------------------------------------------------------------------ beta: uvítání
+    // ------------------------------------------------------------------ značka beta
 
     private val verze by lazy { runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "" }
     private val prefsBeta by lazy { getSharedPreferences("beta", MODE_PRIVATE) }
-
-    /** Uvítání ukázat při prvních 3 spuštěních každé verze. */
-    private fun maUkazatBetu(): Boolean {
-        val klic = "uvitani_$verze"
-        val kolikrat = prefsBeta.getInt(klic, 0)
-        if (kolikrat >= 3) return false
-        prefsBeta.edit().putInt(klic, kolikrat + 1).apply()
-        return true
-    }
 
     /** Malá značka "BETA 0.9" do pravého horního rohu. */
     private fun betaZnacka() = TextView(this).apply {
@@ -187,118 +174,55 @@ class MainActivity : Activity() {
         setPadding(dp(16), dp(4), dp(16), dp(4))
     }
 
-    private fun ukazBetu() {
-        obrazovka = "beta"
-        okBtn = null
-        val zelena = Color.parseColor("#3CFF6E")
-        val box = svisle().apply {
-            gravity = Gravity.CENTER_HORIZONTAL
-            background = zaobleni(Color.parseColor("#111116"), 26f, zelena)
-            setPadding(dp(54), dp(30), dp(54), dp(30))
-        }
-        box.addView(text(t("betaNadpis"), 34f, zelena, tucne = true).apply { gravity = Gravity.CENTER })
-        val radek = vodorovne().apply { gravity = Gravity.CENTER_VERTICAL }
-        radek.addView(text(t("betaText"), 21f, Color.parseColor("#E8E8EE")).apply {
-            gravity = Gravity.CENTER
-            setLineSpacing(0f, 1.3f)
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        // QR na Facebook skupinu (jen na televizi – telefon by skenoval sám sebe)
-        if (!telefon && SKUPINA_URL.isNotEmpty()) {
-            val q = svisle().apply { gravity = Gravity.CENTER_HORIZONTAL }
-            q.addView(ImageView(this).apply {
-                setImageBitmap(PrihlaseniTelefonem.qr(SKUPINA_URL, 400))
-                background = zaobleni(Color.WHITE, 14f)
-                setPadding(dp(8), dp(8), dp(8), dp(8))
-            }, LinearLayout.LayoutParams(dp(190), dp(190)))
-            q.addView(text(t("betaSkupina"), 15f, TEXT2).apply { gravity = Gravity.CENTER }, odsazeni(top = 8))
-            radek.addView(q, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(36) })
-        }
-        box.addView(radek, odsazeni(top = 14))
-
-        val stred = svisle().apply {
-            gravity = Gravity.CENTER
-            addView(ImageView(this@MainActivity).apply {
-                setImageResource(R.drawable.logo); adjustViewBounds = true
-            }, LinearLayout.LayoutParams(if (telefon) dp(300) else dp(340), ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(box, LinearLayout.LayoutParams(if (telefon) ViewGroup.LayoutParams.MATCH_PARENT else dp(1250), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(30) })
-            // nemizí samo – člověk potvrdí, že si to přečetl
-            addView(tlacitkoZelene(t("betaOk")) { if (obrazovka == "beta") pokracuj() }.also { okBtn = it },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(26) })
-        }
-        val koren = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
-            setPadding(dp(24), dp(24), dp(24), dp(24))
-            addView(stred, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-            addView(betaZnacka(), FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END))
-        }
-        setContentView(koren)
-        okBtn?.requestFocus()
-    }
-
-    /** Tlačítko OK na uvítání (výběr ovladačem rovnou na něm). */
-    private var okBtn: View? = null
-
     // ------------------------------------------------------------------ výběr jazyka
 
     private fun ukazJazyk() {
         obrazovka = "jazyk"
         var vybrany = nast.jazyk?.takeIf { it in AKTIVNI_JAZYKY } ?: "cs"
-        val sloupec = svisle().apply { gravity = Gravity.CENTER_HORIZONTAL }
-        sloupec.addView(nadpisLogo())
-        sloupec.addView(text(Texty.t(vybrany, "vyberJazyk"), 30f, Color.WHITE, tucne = true).apply { gravity = Gravity.CENTER })
+        val nadpis = text(Texty.t(vybrany, "vyberJazyk"), 30f, Color.WHITE, tucne = true).apply { gravity = Gravity.CENTER }
         val popis = text(Texty.t(vybrany, "vyberJazykPopis"), 18f, TEXT2).apply { gravity = Gravity.CENTER }
-        sloupec.addView(popis, odsazeni(top = 6, bottom = 20))
-
-        val mrizka = svisle()
-        val polozky = mutableListOf<TextView>()
-        lateinit var pokracovat: TextView
-        fun obnov() {
-            polozky.forEachIndexed { i, v ->
-                val j = Texty.JAZYKY[i]
-                val aktivni = j.kod in AKTIVNI_JAZYKY
-                v.text = "${j.vlajka}   ${j.nazev}" + when {
-                    !aktivni -> "   · " + Texty.t(vybrany, "brzy")
-                    j.kod == vybrany -> "      ✔"
-                    else -> ""
-                }
-                v.background = vyber(KARTA, if (j.kod == vybrany) CERVENA else null)
-                // zatím jen čeština a slovenština – ostatní šedé, nejdou vybrat
-                v.alpha = if (aktivni) 1f else 0.35f
-                v.isFocusable = aktivni
-                v.isClickable = aktivni
+        val pokracovat = Button(this).apply {
+            isAllCaps = false
+            textSize = 20f * SKALA
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList.valueOf(CERVENA)
+            text = Texty.t(vybrany, "pokracovat")
+            setOnClickListener {
+                nast.jazyk = vybrany
+                ukazHlavni()
             }
+        }
+
+        // nativní přepínače; vybrat jdou jen jazyky, které aplikace opravdu umí
+        val skupina = RadioGroup(this).apply { orientation = LinearLayout.VERTICAL }
+        val prepinace = Texty.JAZYKY.filter { it.kod in AKTIVNI_JAZYKY }.map { j ->
+            RadioButton(this).apply {
+                id = View.generateViewId()
+                tag = j.kod
+                text = "${j.vlajka}   ${j.nazev}"
+                textSize = 22f * SKALA
+                setTextColor(Color.WHITE)
+                buttonTintList = ColorStateList.valueOf(CERVENA)
+                setPadding(dp(12), dp(14), dp(12), dp(14))
+                isChecked = j.kod == vybrany
+                skupina.addView(this, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+        }
+        skupina.setOnCheckedChangeListener { g, id ->
+            vybrany = g.findViewById<View>(id).tag as String
+            nadpis.text = Texty.t(vybrany, "vyberJazyk")
+            popis.text = Texty.t(vybrany, "vyberJazykPopis")
             pokracovat.text = Texty.t(vybrany, "pokracovat")
         }
-        // dva sloupce jazyků
-        Texty.JAZYKY.chunked(if (telefon) Texty.JAZYKY.size else 4).let { sloupce ->
-            val radek = vodorovne()
-            sloupce.forEach { cast ->
-                val s = svisle()
-                cast.forEach { j ->
-                    val v = tlacitko("", 22f) {
-                        if (j.kod !in AKTIVNI_JAZYKY) return@tlacitko
-                        vybrany = j.kod
-                        obnov()
-                        sloupec.getChildAt(1).let { (it as TextView).text = Texty.t(vybrany, "vyberJazyk") }
-                        popis.text = Texty.t(vybrany, "vyberJazykPopis")
-                    }.apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(24), dp(14), dp(24), dp(14)) }
-                    polozky += v
-                    s.addView(v, LinearLayout.LayoutParams(if (telefon) ViewGroup.LayoutParams.MATCH_PARENT else dp(330), ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(dp(8), dp(6), dp(8), dp(6)) })
-                }
-                radek.addView(s)
-            }
-            mrizka.addView(radek)
-        }
-        sloupec.addView(mrizka)
-        pokracovat = tlacitkoCervene("") {
-            nast.jazyk = vybrany
-            // první spuštění: po výběru jazyka uvítání v tom jazyce
-            if (obrazovka == "jazyk" && maUkazatBetu()) ukazBetu() else ukazHlavni()
-        }
-        sloupec.addView(pokracovat, LinearLayout.LayoutParams(if (telefon) ViewGroup.LayoutParams.MATCH_PARENT else dp(680), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(20) })
-        obnov()
+
+        val sloupec = svisle().apply { gravity = Gravity.CENTER_HORIZONTAL }
+        sloupec.addView(nadpis)
+        sloupec.addView(popis, odsazeni(top = 6, bottom = 20))
+        sloupec.addView(skupina, LinearLayout.LayoutParams(if (telefon) ViewGroup.LayoutParams.MATCH_PARENT else dp(480), ViewGroup.LayoutParams.WRAP_CONTENT))
+        sloupec.addView(pokracovat, LinearLayout.LayoutParams(if (telefon) ViewGroup.LayoutParams.MATCH_PARENT else dp(480), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(24) })
         nastavObsah(sloupec, sirka = if (telefon) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT)
-        polozky[Texty.JAZYKY.indexOfFirst { it.kod == vybrany }.coerceAtLeast(0)].requestFocus()
+        // ovladač na TV: začít na zvoleném jazyce
+        prepinace.first { it.tag == vybrany }.requestFocus()
     }
 
     // ------------------------------------------------------------------ hlavní obrazovka
@@ -350,10 +274,7 @@ class MainActivity : Activity() {
             isClickable = true
             background = vyber(Color.TRANSPARENT, radius = 18f)
             setPadding(dp(8), dp(6), dp(8), dp(6))
-            addView(ImageView(this@MainActivity).apply {
-                setImageResource(R.drawable.logo)
-                adjustViewBounds = true
-            }, FrameLayout.LayoutParams(dp(if (telefon) 230 else 140), ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(text(getString(R.string.app_name), if (telefon) 26f else 20f, Color.WHITE, tucne = true))
             setOnClickListener { Zaznam.ukaz(this@MainActivity) }
             setOnLongClickListener { Zaznam.ukaz(this@MainActivity, sVyvojem = true); true }
         }
@@ -1076,7 +997,6 @@ class MainActivity : Activity() {
     private fun ukazPrijem() {
         obrazovka = "prijem"
         val sloupec = svisle().apply { gravity = Gravity.CENTER_HORIZONTAL }
-        sloupec.addView(nadpisLogo())
         sloupec.addView(text(t("prijemNadpis"), 32f, Color.WHITE, tucne = true).apply { gravity = Gravity.CENTER }, odsazeni(top = 14))
 
         // tři kroky s obrázky
@@ -1506,7 +1426,6 @@ class MainActivity : Activity() {
         if (ukoncitPrihlaseni) zastavServer()
         obrazovka = "pripojeni"
         val sloupec = svisle()
-        sloupec.addView(nadpisLogo())
         sloupec.addView(text(t("pripojitKonzoli"), 28f, Color.WHITE, tucne = true), odsazeni(bottom = 16))
         if (telefon && !TvProfily(this).platforma.jenZobrazovac) {
             val kTv = karta()
@@ -1688,7 +1607,6 @@ class MainActivity : Activity() {
         val adresa = "http://$host:${PrihlaseniTelefonem.PORT}${stranka.cesta}"
 
         val sloupec = svisle()
-        sloupec.addView(nadpisLogo())
         sloupec.addView(text(t("qrNadpis"), 28f, Color.WHITE, tucne = true), odsazeni(bottom = 12))
         val k = karta()
         if (telefon) {
@@ -1728,7 +1646,6 @@ class MainActivity : Activity() {
         zastavServer()
         obrazovka = "xbox"
         val sloupec = svisle()
-        sloupec.addView(nadpisLogo())
         sloupec.addView(text(t("xboxNadpis"), 28f, Color.WHITE, tucne = true), odsazeni(bottom = 16))
         if (telefon && !TvProfily(this).platforma.jenZobrazovac) {
             val kTv = karta()
@@ -1835,7 +1752,6 @@ class MainActivity : Activity() {
     private fun ukazXboxKod() {
         obrazovka = "xboxkod"
         val sloupec = svisle()
-        sloupec.addView(nadpisLogo())
         sloupec.addView(text(t("xboxKodNadpis"), 28f, Color.WHITE, tucne = true), odsazeni(bottom = 12))
         val k = karta()
         val stav = text(t("xboxKodNacitam"), 17f, TEXT2)
@@ -1970,12 +1886,6 @@ class MainActivity : Activity() {
     private fun karta() = svisle().apply {
         background = zaobleni(KARTA)
         setPadding(dp(22), dp(16), dp(22), dp(16))
-    }
-
-    private fun nadpisLogo() = ImageView(this).apply {
-        setImageResource(R.drawable.logo)
-        adjustViewBounds = true
-        layoutParams = LinearLayout.LayoutParams(dp(260), ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14) }
     }
 
     private fun tlacitko(s: String, velikost: Float, akce: () -> Unit) = TextView(this).apply {

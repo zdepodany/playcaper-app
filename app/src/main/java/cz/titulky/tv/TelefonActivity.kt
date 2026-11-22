@@ -875,12 +875,14 @@ class TelefonActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(10), dp(12), dp(4))
-            addView(ImageView(this@TelefonActivity).apply {
-                setImageResource(R.drawable.logo)
-                adjustViewBounds = true
-                // podržet logo → záznam (pro hledání chyb)
+            addView(TextView(this@TelefonActivity).apply {
+                text = getString(R.string.app_name)
+                textSize = 18f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(android.graphics.Color.WHITE)
+                // podržet název → záznam (pro hledání chyb)
                 setOnLongClickListener { Zaznam.ukaz(this@TelefonActivity); true }
-            }, LinearLayout.LayoutParams(dp(60), ViewGroup.LayoutParams.WRAP_CONTENT))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             // mezera – tlačítka doprava (Zastavit se musí vejít i na užší telefon)
             addView(View(this@TelefonActivity), LinearLayout.LayoutParams(0, 1, 1f))
             addView(tvTlacitko, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) })
