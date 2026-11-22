@@ -25,7 +25,7 @@ import java.util.concurrent.Executors
  */
 class Prekladac(context: android.content.Context? = null, cilovy: String = "cs") {
 
-    /** Cílový jazyk překladu (kód: cs, sk, de, pl, fr, es, it). */
+    /** Cílový jazyk překladu (kód: cs, sk, de, pl, fr, es, it; fork vybírá jen cs, viz Nastaveni.AKTIVNI_JAZYKY). */
     @Volatile var cil: String = cilovy
         private set
 

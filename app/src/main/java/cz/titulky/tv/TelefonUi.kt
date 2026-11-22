@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,7 +27,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
@@ -49,9 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
@@ -216,7 +211,7 @@ internal fun NastaveniObrazovka(
     jazykNazev: String, deeplPruh: (android.content.Context) -> View?,
     tv: () -> TvKarta, lgStav: (android.content.Context) -> View,
     dialogy: Boolean, naDialogy: (Boolean) -> Unit,
-    naJazyk: () -> Unit, naDeepl: () -> Unit, naVystup: () -> Unit,
+    naDeepl: () -> Unit, naVystup: () -> Unit,
 ) {
     Text(t("navNastaveni"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
 
@@ -227,7 +222,6 @@ internal fun NastaveniObrazovka(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             headlineContent = { Text(jazykNazev) },
             supportingContent = { Text(t("zdrojKratce")) },
-            trailingContent = { TextButton(onClick = naJazyk) { Text(t("tvZmenitKratce")) } },
         )
         Column(Modifier.clickable(onClick = naDeepl).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
             val ctx = LocalContext.current
@@ -280,38 +274,4 @@ internal fun NastaveniObrazovka(
         t("napovedyHint"), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp),
     )
-}
-
-// ---------------------------------------------------------------------------------- Výběr jazyka
-
-@Composable
-internal fun JazykObrazovka(jazyky: List<Jazyk>, pocatecni: String, text: (String, String) -> String, naPokracovat: (String) -> Unit) {
-    var vybrany by remember { mutableStateOf(pocatecni) }
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { vnitrek ->
-        Column(
-            Modifier.padding(vnitrek).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(text(vybrany, "vyberJazyk"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Text(
-                text(vybrany, "vyberJazykPopis"), style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
-            )
-            jazyky.forEach { j ->
-                Row(
-                    Modifier.fillMaxWidth().selectable(selected = vybrany == j.kod, role = Role.RadioButton, onClick = { vybrany = j.kod })
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RadioButton(selected = vybrany == j.kod, onClick = null)
-                    Spacer(Modifier.width(16.dp))
-                    Text("${j.vlajka}   ${j.nazev}", style = MaterialTheme.typography.titleMedium)
-                }
-            }
-            Button(onClick = { naPokracovat(vybrany) }, modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
-                Text(text(vybrany, "pokracovat"))
-            }
-        }
-    }
 }

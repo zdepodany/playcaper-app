@@ -2,7 +2,7 @@
 
 © 2026 Adam Růžička. Licence GNU AGPLv3 (viz níže).
 
-**České (a slovenské) titulky ke hrám na PS5 přímo na televizi.**
+**České titulky ke hrám na PS5 přímo na televizi.**
 
 > Spojení s PS5 zajišťuje otevřená knihovna **[Chiaki](https://git.sr.ht/~thestr4ng3r/chiaki)** (Florian Märkl a přispěvatelé, AGPLv3). Čtení titulků, překlad a zobrazení na televizi jsou vlastní práce PlayCaption, vyvíjená s pomocí AI. Podrobně v části [Poděkování](#poděkování-a-použitý-software).
 

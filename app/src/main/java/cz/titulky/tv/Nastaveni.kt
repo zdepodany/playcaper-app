@@ -6,12 +6,13 @@ import android.content.Context
 class Nastaveni(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("gamelingo", Context.MODE_PRIVATE)
 
-    /** Jazyk překladu i prostředí aplikace; null = ještě nevybráno (první spuštění). */
+    /** Uložený jazyk překladu i prostředí aplikace; null = nic neuloženo. */
     var jazyk: String?
         get() = prefs.getString("jazyk", null)
         set(v) = prefs.edit().putString("jazyk", v).apply()
 
-    val jazykNeboCs get() = jazyk ?: "cs"
+    /** Jazyk, který se opravdu použije: uložený, pokud jde vybrat (starší „sk“ apod. → čeština). */
+    val jazykNeboCs get() = jazyk?.takeIf { it in AKTIVNI_JAZYKY } ?: "cs"
 
     /**
      * Vlastní klíče k DeepL API (nepovinné, nejvýš [MAX_DEEPL_KLICU]) v pořadí použití.
@@ -26,6 +27,9 @@ class Nastaveni(context: Context) {
 
     companion object {
         const val MAX_DEEPL_KLICU = 5
+
+        /** Jazyky překladu, které fork podporuje (slovenština odebrána). */
+        val AKTIVNI_JAZYKY = setOf("cs")
 
         /** Řádky → klíče: oříznout, bez prázdných a duplicit, nejvýš [MAX_DEEPL_KLICU]. */
         fun vycistiDeeplKlice(text: String): List<String> =

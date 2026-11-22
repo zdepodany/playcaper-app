@@ -42,11 +42,6 @@ class MainActivity : ComponentActivity() {
 
     private val CERVENA = Color.parseColor("#E5091A")
 
-    companion object {
-        /** Jazyky, které jdou zatím vybrat (beta pro českou a slovenskou komunitu). */
-        val AKTIVNI_JAZYKY = setOf("cs", "sk")
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Pady.hlidej(this)
@@ -85,8 +80,7 @@ class MainActivity : ComponentActivity() {
         when (obrazovka) {
             "psn", "psnqr" -> ukazPripojeni()
             "nastaveni" -> ukazHlavni()
-            "jazyk" -> if (nast.jazyk != null) { obnovAktualni(jazykZNastaveni); jazykZNastaveni = false } else super.onBackPressed()
-            "pripojeni" -> if (nast.jazyk != null) ukazHlavni() else super.onBackPressed()
+            "pripojeni" -> ukazHlavni()
             else -> super.onBackPressed()
         }
     }
@@ -129,34 +123,11 @@ class MainActivity : ComponentActivity() {
         ui.post(krok)
     }
 
-    private fun pokracuj() { if (nast.jazyk == null) ukazJazyk() else ukazHlavni() }
+    private fun pokracuj() = ukazHlavni()
 
     private val verze by lazy { runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "" }
 
-    // ------------------------------------------------------------------ výběr jazyka
-
-    private fun ukazJazyk() {
-        obrazovka = "jazyk"
-        setContent {
-            PlayCaperTema {
-                JazykObrazovka(
-                    jazyky = Texty.JAZYKY.filter { it.kod in AKTIVNI_JAZYKY },
-                    pocatecni = nast.jazyk?.takeIf { it in AKTIVNI_JAZYKY } ?: "cs",
-                    text = { kod, klic -> Texty.t(kod, klic) },
-                    naPokracovat = { kod ->
-                        nast.jazyk = kod
-                        obnovAktualni(jazykZNastaveni)
-                        jazykZNastaveni = false
-                    },
-                )
-            }
-        }
-    }
-
     // ------------------------------------------------------------------ Domů a Nastavení
-
-    /** Odkud se otevřel výběr jazyka (z Nastavení se po něm vracíme tam). */
-    private var jazykZNastaveni = false
 
     /** Překreslí hlavní obrazovku, nebo Nastavení. */
     private fun obnovAktualni(nastaveni: Boolean) { if (nastaveni) ukazNastaveni() else ukazHlavni() }
@@ -211,7 +182,6 @@ class MainActivity : ComponentActivity() {
                         deeplPruh = { DeeplLimit.pruh(it, 13f, Color.GRAY) },
                         tv = { tvKarta() }, lgStav = { lgStavView() },
                         dialogy = nast.dialogy, naDialogy = { nast.dialogy = it },
-                        naJazyk = { jazykZNastaveni = true; ukazJazyk() },
                         naDeepl = { zadejDeeplKlic() }, naVystup = { vyberVystupTv() },
                     )
                 }
@@ -487,7 +457,7 @@ class MainActivity : ComponentActivity() {
     private fun ukazPsnTelefonem() {
         val pokus = pripravPsnPokus()
         obrazovka = "psnqr"
-        val cesky = nast.jazykNeboCs in listOf("cs", "sk")
+        val cesky = nast.jazykNeboCs == "cs"
         val stranka = PrihlaseniTelefonem(cesky, pokus)
         server = stranka.also { it.spust() }
         val adresa = "http://127.0.0.1:${PrihlaseniTelefonem.PORT}${stranka.cesta}"
