@@ -378,7 +378,18 @@ class MainActivity : Activity() {
         jazykKarta.addView(deeplRadek, plnaSirka().apply { topMargin = dp(6); leftMargin = -dp(6); rightMargin = -dp(6) })
 
         // ---------- stav (pruh, který se při připojování plní zeleně)
-        stavKarta = FrameLayout(this).apply {
+        stavKarta = object : FrameLayout(this) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+                // zelená výplň nesmí určovat výšku karty (výška MATCH_PARENT by zabrala veškeré místo a
+                // ostatní sekce by se vytlačily); až po změření obsahu se dorovná na výšku karty
+                stavVypln?.let { v ->
+                    v.measure(
+                        MeasureSpec.makeMeasureSpec(v.layoutParams.width, MeasureSpec.EXACTLY),
+                        MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY))
+                }
+            }
+        }.apply {
             clipToOutline = true // zelená výplň se drží zaoblených rohů
             if (!telefon) {
                 // televize: OK na pruhu zapne / pozastaví překlad (jako dřív)
@@ -387,7 +398,7 @@ class MainActivity : Activity() {
             }
         }
         stavVypln = View(this).apply { setBackgroundColor(Color.parseColor("#4D22C55E")) }
-        stavKarta.addView(stavVypln, FrameLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT))
+        stavKarta.addView(stavVypln, FrameLayout.LayoutParams(0, 0))
         val stavObsah = vodorovne().apply {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16), dp(13), dp(16), dp(13))
@@ -513,22 +524,9 @@ class MainActivity : Activity() {
             obsah.addView(tlacitkoCervene(t("hratBtn")) {
                 if (nejakaKonzole) startActivity(Intent(this, TelefonActivity::class.java)) else ukazPripojeni()
             }.apply { textSize = 28f * SKALA; setPadding(dp(28), dp(18), dp(28), dp(18)) })
-            // patička: krátký tip a odkaz na zásluhy/licence (celý text v okně – Chiaki AGPLv3 v aplikaci zůstává)
+            // patička: krátký tip
             tip.text = t("tipPripojeni").trimStart { !it.isLetterOrDigit() }
             obsah.addView(tip, odsazeni(top = 16))
-            obsah.addView(text(t("oAplikaci") + "  ›", pismo(11f, 13f), TEXT2).apply {
-                gravity = Gravity.CENTER
-                isClickable = true
-                isFocusable = true
-                setPadding(0, dp(10), 0, dp(10))
-                setOnClickListener {
-                    android.app.AlertDialog.Builder(this@MainActivity)
-                        .setTitle(t("oAplikaci"))
-                        .setMessage(t("zasluhy"))
-                        .setPositiveButton(android.R.string.ok, null)
-                        .show()
-                }
-            }, odsazeni(top = 6))
             obnovTvKartu()
         } else {
             // televize: mřížka – levý a pravý sloupec mají v každém řádku stejnou výšku, vše v jedné rovině

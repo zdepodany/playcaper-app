@@ -587,7 +587,6 @@ object Texty {
         "hlVystup" to listOf("Titulky", "Titulky"),
         "napovedyHint" to listOf("Menu, úkoly a dopisy přeložíš při hraní žlutým rámečkem.",
             "Menu, úlohy a listy preložíš pri hraní žltým rámčekom."),
-        "oAplikaci" to listOf("O aplikaci a licence", "O aplikácii a licencie"),
         "deeplNadpis" to listOf("Klíče DeepL (nepovinné)", "Kľúče DeepL (nepovinné)"),
         "deeplText" to listOf(
             "S klíčem k DeepL API překládá PlayCaption přednostně přes DeepL. Klíč zdarma (DeepL API Free) získáš na deepl.com/pro-api. Když hraje víc lidí, může sem každý vložit svůj klíč. Používají se postupně a po vyčerpání všech převezme překlad Google. Prázdné pole klíč odebere.",
