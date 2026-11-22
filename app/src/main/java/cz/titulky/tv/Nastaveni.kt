@@ -25,6 +25,16 @@ class Nastaveni(context: Context) {
         set(v) = prefs.edit().remove("deeplKlic")
             .putString("deeplKlice", vycistiDeeplKlice(v.joinToString("\n")).joinToString("\n")).apply()
 
+    /** Pořadí online překladových služeb (id z [SluzbyPrekladu]); vždy obsahuje všechny. */
+    var poradiSluzeb: List<String>
+        get() = SluzbyPrekladu.normalizuj(prefs.getString("poradiSluzeb", null).orEmpty().split(",").filter { it.isNotBlank() })
+        set(v) = prefs.edit().putString("poradiSluzeb", SluzbyPrekladu.normalizuj(v).joinToString(",")).apply()
+
+    /** Služby, které uživatel vypnul (výchozí: žádná). */
+    var vypnuteSluzby: Set<String>
+        get() = prefs.getString("vypnuteSluzby", null).orEmpty().split(",").filter { it in SluzbyPrekladu.VYCHOZI }.toSet()
+        set(v) = prefs.edit().putString("vypnuteSluzby", v.filter { it in SluzbyPrekladu.VYCHOZI }.joinToString(",")).apply()
+
     companion object {
         const val MAX_DEEPL_KLICU = 5
 

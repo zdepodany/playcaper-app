@@ -49,6 +49,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.activity:activity-compose:1.9.0")
+    // Přetahování řádků (pořadí služeb překladu); 2.2.0 = poslední pro Kotlin 1.9 a Compose 1.6
+    implementation("sh.calvin.reorderable:reorderable:2.2.0")
     // Překlad přímo v televizi – zdarma, bez limitu (Google ML Kit)
     implementation("com.google.mlkit:translate:17.0.3")
     // Čtení textu z obrazu – zdarma, v televizi, bez stahování (Google ML Kit)

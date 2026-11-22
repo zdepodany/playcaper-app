@@ -208,31 +208,22 @@ private fun KonzoleRadek(nazev: String, stav: Pair<String, String>, t: (String) 
 @Composable
 internal fun NastaveniObrazovka(
     t: (String) -> String,
-    deeplPruh: (android.content.Context) -> View?,
+    souhrnSluzeb: String,
     tv: () -> TvKarta, lgStav: (android.content.Context) -> View,
     dialogy: Boolean, naDialogy: (Boolean) -> Unit,
-    naDeepl: () -> Unit, naVystup: () -> Unit,
+    naSluzby: () -> Unit, naVystup: () -> Unit,
 ) {
     Text(t("navNastaveni"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
 
-    // --- překlad (DeepL → podstránka)
+    // --- překlad (služby a jejich pořadí → podstránka, DeepL je v ní)
     Nadpis(t("hlPreklad"))
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh), modifier = Modifier.fillMaxWidth()) {
-        val ctx = LocalContext.current
-        val barva = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
-        val maPruh = remember { deeplPruh(ctx) != null }
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = { Text(t("deeplRadek")) },
-            supportingContent = {
-                if (maPruh) AndroidView(
-                    factory = { deeplPruh(it)!!.also { v -> (v as? android.widget.TextView)?.setTextColor(barva) } },
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                )
-                else Text(t("deeplRadekVypnuto"))
-            },
+            headlineContent = { Text(t("sluzbyNadpis")) },
+            supportingContent = { Text(souhrnSluzeb) },
             trailingContent = { Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null) },
-            modifier = Modifier.clickable(onClick = naDeepl),
+            modifier = Modifier.clickable(onClick = naSluzby),
         )
     }
 

@@ -78,7 +78,8 @@ class MainActivity : ComponentActivity() {
         when (obrazovka) {
             "psn", "psnqr" -> ukazPripojeni()
             "nastaveni" -> ukazHlavni()
-            "deepl" -> ukazNastaveni()
+            "sluzby" -> ukazNastaveni()
+            "deepl" -> ukazSluzby()
             "pripojeni" -> ukazHlavni()
             else -> super.onBackPressed()
         }
@@ -177,10 +178,10 @@ class MainActivity : ComponentActivity() {
                 TelefonKostra(1, ::t, naDomu = { ukazHlavni() }, naNastaveni = {}) {
                     NastaveniObrazovka(
                         t = ::t,
-                        deeplPruh = { DeeplLimit.pruh(it, 13f, Color.GRAY) },
+                        souhrnSluzeb = souhrnSluzeb(::t, nast.poradiSluzeb, nast.vypnuteSluzby, nast.deeplKlice.isNotEmpty()),
                         tv = { tvKarta() }, lgStav = { lgStavView() },
                         dialogy = nast.dialogy, naDialogy = { nast.dialogy = it },
-                        naDeepl = { ukazDeepl() }, naVystup = { vyberVystupTv() },
+                        naSluzby = { ukazSluzby() }, naVystup = { vyberVystupTv() },
                     )
                 }
             }
@@ -251,6 +252,36 @@ class MainActivity : ComponentActivity() {
         else (if (Propojeni.Vysilac.cilIp != null) TvProfily.aktivniId else p.posledniId)?.let { p.najdi(it) }
     }.apply { textSize = 13f * SKALA }
 
+    // ------------------------------------------------------------------ Nastavení → Služby překladu
+
+    private var sluzbyPoradi by androidx.compose.runtime.mutableStateOf(SluzbyPrekladu.VYCHOZI)
+    private var sluzbyVypnute by androidx.compose.runtime.mutableStateOf(emptySet<String>())
+
+    /** Pořadí a zapnutí online služeb; překladač je čte při každé větě, změna platí hned. */
+    private fun ukazSluzby() {
+        obrazovka = "sluzby"
+        sluzbyPoradi = nast.poradiSluzeb
+        sluzbyVypnute = nast.vypnuteSluzby
+        val maKlic = nast.deeplKlice.isNotEmpty()
+        setContent {
+            PlayCaperTema {
+                SluzbyObrazovka(
+                    t = ::t, poradi = sluzbyPoradi, vypnute = sluzbyVypnute, maDeeplKlic = maKlic,
+                    naZpet = { ukazNastaveni() },
+                    naPresun = { z, na ->
+                        nast.poradiSluzeb = SluzbyPrekladu.presun(sluzbyPoradi, z, na)
+                        sluzbyPoradi = nast.poradiSluzeb
+                    },
+                    naZapnout = { id, zap ->
+                        nast.vypnuteSluzby = if (zap) sluzbyVypnute - id else sluzbyVypnute + id
+                        sluzbyVypnute = nast.vypnuteSluzby
+                    },
+                    naDeepl = { ukazDeepl() },
+                )
+            }
+        }
+    }
+
     // ------------------------------------------------------------------ Nastavení → DeepL
 
     private var deeplUlozene by androidx.compose.runtime.mutableStateOf(emptyList<String>())
@@ -268,7 +299,7 @@ class MainActivity : ComponentActivity() {
             PlayCaperTema {
                 DeeplObrazovka(
                     t = ::t, ulozene = deeplUlozene, stavy = deeplStavy,
-                    naZpet = { ukazNastaveni() },
+                    naZpet = { ukazSluzby() },
                     naZiskat = { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.deepl.com/pro-api"))) } },
                     naUlozit = { pole ->
                         nast.deeplKlice = pole

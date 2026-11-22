@@ -403,13 +403,21 @@ object Texty {
             "Menu, úlohy a listy preložíš pri hraní žltým rámčekom."),
         "hlPreklad" to listOf("Překlad", "Preklad"),
         "deeplRadek" to listOf("DeepL", "DeepL"),
-        "deeplRadekVypnuto" to listOf("Nepoužívá se – překládá Google", "Nepoužíva sa – prekladá Google"),
+        "sluzbyNadpis" to listOf("Služby překladu"),
+        "sluzbyPopis" to listOf("Zkoušejí se shora dolů, překládá první, která odpoví. Pořadí změníš přetažením za ≡, nechtěnou službu vypneš."),
+        "sluzbyPamet" to listOf("Už přeložené věty se berou z paměti překladů, nové pořadí se proto projeví u nových vět."),
+        "sluzbaNahoru" to listOf("Posunout nahoru"),
+        "sluzbaDolu" to listOf("Posunout dolů"),
+        "sluzbaVlozitKlic" to listOf("Vložit klíč"),
+        "sluzbaOffline" to listOf("Google ML Kit"),
+        "sluzbaOfflineKratce" to listOf("ML Kit"),
+        "sluzbaOfflinePopis" to listOf("V zařízení, horší kvalita - záloha"),
         "deeplHlJak" to listOf("Jak to funguje", "Ako to funguje"),
         "deeplJak" to listOf(
             "DeepL překládá přirozeněji než Google, hlavně delší věty a dialogy. Je nepovinný: bez klíče překládá Google zdarma a bez nastavení.\n\n" +
                 "• Klíč zdarma (DeepL API Free) dává 500 000 znaků měsíčně. Na začátku měsíce se limit obnoví.\n" +
                 "• Když hraje víc lidí, může si každý vložit svůj klíč. Používají se postupně, odshora dolů.\n" +
-                "• Po vyčerpání všech klíčů převezme překlad automaticky Google.\n" +
+                "• Po vyčerpání všech klíčů převezme překlad automaticky další služba v pořadí.\n" +
                 "• Krátké volby v dialozích DeepL nečerpají, ty překládá rovnou Google.",
             "DeepL prekladá prirodzenejšie než Google, hlavne dlhšie vety a dialógy. Je nepovinný: bez kľúča prekladá Google zadarmo a bez nastavenia.\n\n" +
                 "• Kľúč zadarmo (DeepL API Free) dáva 500 000 znakov mesačne. Na začiatku mesiaca sa limit obnoví.\n" +

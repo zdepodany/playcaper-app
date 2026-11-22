@@ -16,10 +16,10 @@ import java.util.concurrent.Executors
 /**
  * Překlad angličtina → čeština.
  *
- * 0) DeepL – jen když si uživatel zadal vlastní klíč (Free 500 000 znaků/měsíc).
- * 1) Google Překladač přes internet (bez klíče, neoficiální přístup – může ho kdykoli omezit).
- * 2) Microsoft (Edge), 3) MyMemory.
- * 4) Když nic online nejde (bez internetu, zablokováno, pomalé), přeloží to Google ML Kit přímo v televizi.
+ * Online služby se zkoušejí v pořadí, které si uživatel nastavil (výchozí [SluzbyPrekladu.VYCHOZI]):
+ * DeepL (jen s vlastním klíčem, Free 500 000 znaků/měsíc), Google (bez klíče, neoficiální přístup),
+ * Microsoft (Edge), MyMemory. Vypnuté služby se přeskakují.
+ * Když nic online nejde (bez internetu, zablokováno, pomalé), přeloží to Google ML Kit přímo v televizi.
  *
  * Výsledek se vždy vrací na hlavním vlákně.
  */
@@ -69,8 +69,12 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
             if (!pribehObsazen.compareAndSet(false, true)) false
             else try {
                 pribehSit.execute {
-                    val vysledek = try { zkusDeepl(t, jazyk) ?: runCatching { google(t, jazyk) }.getOrNull() }
-                    finally { pribehObsazen.set(false) }
+                    val vysledek = try {
+                        // časový rozpočet: jen první zapnuté služby, Google jedním pokusem
+                        val ted = System.currentTimeMillis()
+                        aktivniSluzby(false).take(SluzbyPrekladu.PRIBEH_MAX)
+                            .firstNotNullOfOrNull { zkusSluzbu(it, t, jazyk, ted, pokusuGoogle = 1) }
+                    } finally { pribehObsazen.set(false) }
                     ui.post {
                         if (!vysledek.isNullOrBlank() && cil == jazyk && !zavreno) cache.put(t, vysledek)
                         callback(vysledek)
@@ -133,23 +137,10 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
             val ted = System.currentTimeMillis()
             var vysledek: String? = null
             var odkud = ""
-            // 0) DeepL – jen s vlastním klíčem uživatele
-            if (!bezDeepl) vysledek = zkusDeepl(vstup, cil)
-            if (!vysledek.isNullOrBlank()) odkud = "deepl"
-            // 1) Google – 2 pokusy (udržované spojení mohl Google mezitím zavřít)
-            if (vysledek.isNullOrBlank() && ted >= googlePauzaDo) {
-                vysledek = runCatching { google(vstup) }.getOrNull() ?: runCatching { google(vstup) }.getOrNull()
-                if (vysledek.isNullOrBlank()) { googlePauzaDo = ted + 30_000L; chybGooglu++ } else odkud = "google"
-            }
-            // 2) Microsoft (překladač z prohlížeče Edge) – bez registrace
-            if (vysledek.isNullOrBlank() && ted >= edgePauzaDo) {
-                vysledek = runCatching { edge(vstup) }.getOrNull() ?: runCatching { edgeToken = null; edge(vstup) }.getOrNull()
-                if (vysledek.isNullOrBlank()) edgePauzaDo = ted + 60_000L else odkud = "microsoft"
-            }
-            // 3) MyMemory – veřejná služba zdarma, bez registrace (denní limit)
-            if (vysledek.isNullOrBlank() && ted >= myMemoryPauzaDo) {
-                vysledek = runCatching { myMemory(vstup) }.getOrNull()
-                if (vysledek.isNullOrBlank()) myMemoryPauzaDo = ted + 5 * 60_000L else odkud = "mymemory"
+            // online služby v pořadí podle nastavení (vypnuté a DeepL bez klíče se přeskočí)
+            for (id in aktivniSluzby(bezDeepl)) {
+                vysledek = zkusSluzbu(id, vstup, jazyk, ted)
+                if (!vysledek.isNullOrBlank()) { odkud = id; break }
             }
             val hotovyText = vysledek
             ui.post {
@@ -164,6 +155,39 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
                 }
             }
         } }.isFailure) chyba("překladač zavřený")
+    }
+
+    /** Pořadí a zapnutí služeb se čte při každé větě, ať změna v Nastavení platí hned. */
+    private fun aktivniSluzby(bezDeepl: Boolean): List<String> = SluzbyPrekladu.aktivni(
+        poradi = nast?.poradiSluzeb ?: SluzbyPrekladu.VYCHOZI,
+        vypnute = nast?.vypnuteSluzby.orEmpty(),
+        maDeeplKlic = nast?.deeplKlice.orEmpty().isNotEmpty(),
+        bezDeepl = bezDeepl,
+    )
+
+    /**
+     * Jeden pokus o překlad danou službou; null = zkusit další. Po selhání se služba na chvíli
+     * vynechá, ať každá věta nečeká na stejnou chybu (DeepL má pauzy po klíčích v [zkusDeepl]).
+     */
+    private fun zkusSluzbu(id: String, text: String, jazyk: String, ted: Long, pokusuGoogle: Int = 2): String? = when (id) {
+        SluzbyPrekladu.DEEPL -> zkusDeepl(text, jazyk)
+        // Google – standardně 2 pokusy (udržované spojení mohl Google mezitím zavřít)
+        SluzbyPrekladu.GOOGLE -> if (ted < googlePauzaDo) null else {
+            var v: String? = null
+            repeat(pokusuGoogle) { if (v.isNullOrBlank()) v = runCatching { google(text, jazyk) }.getOrNull() }
+            if (v.isNullOrBlank()) { googlePauzaDo = ted + 30_000L; chybGooglu++; null } else v
+        }
+        // Microsoft (překladač z prohlížeče Edge) – bez registrace; druhý pokus s novým tokenem
+        SluzbyPrekladu.MICROSOFT -> if (ted < edgePauzaDo) null else {
+            val v = runCatching { edge(text, jazyk) }.getOrNull() ?: runCatching { edgeToken = null; edge(text, jazyk) }.getOrNull()
+            if (v.isNullOrBlank()) { edgePauzaDo = ted + 60_000L; null } else v
+        }
+        // MyMemory – veřejná služba zdarma, bez registrace (denní limit)
+        SluzbyPrekladu.MYMEMORY -> if (ted < myMemoryPauzaDo) null else {
+            val v = runCatching { myMemory(text, jazyk) }.getOrNull()
+            if (v.isNullOrBlank()) { myMemoryPauzaDo = ted + 5 * 60_000L; null } else v
+        }
+        else -> null
     }
 
     /** Jen rychlý překlad přímo v televizi (bez internetu) – na okamžitý náhled. */
@@ -276,7 +300,7 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
      * Microsoft Translator přes token prohlížeče Edge (neoficiální, bez registrace).
      * Token platí ~10 min, bereme ho znovu po 8 minutách.
      */
-    private fun edge(text: String): String? {
+    private fun edge(text: String, cilJazyk: String = cil): String? {
         val ted = System.currentTimeMillis()
         var token = edgeToken
         if (token == null || ted > edgeTokenDo) {
@@ -289,7 +313,7 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
             edgeToken = token
             edgeTokenDo = ted + 8 * 60_000L
         }
-        val spojeni = URL("https://api-edge.cognitive.microsofttranslator.com/translate?from=en&to=$cil&api-version=3.0")
+        val spojeni = URL("https://api-edge.cognitive.microsofttranslator.com/translate?from=en&to=$cilJazyk&api-version=3.0")
             .openConnection() as HttpURLConnection
         spojeni.connectTimeout = 1500; spojeni.readTimeout = 2500
         spojeni.requestMethod = "POST"
@@ -307,8 +331,8 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
     }
 
     /** MyMemory – veřejná překladová služba zdarma bez registrace (s denním limitem). */
-    private fun myMemory(text: String): String? {
-        val adresa = "https://api.mymemory.translated.net/get?langpair=en%7C$cil&q=" + URLEncoder.encode(text, "UTF-8")
+    private fun myMemory(text: String, cilJazyk: String = cil): String? {
+        val adresa = "https://api.mymemory.translated.net/get?langpair=en%7C$cilJazyk&q=" + URLEncoder.encode(text, "UTF-8")
         val spojeni = URL(adresa).openConnection() as HttpURLConnection
         spojeni.connectTimeout = 1500; spojeni.readTimeout = 3000
         if (spojeni.responseCode != 200) { spojeni.disconnect(); return null }
