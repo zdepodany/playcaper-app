@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -17,7 +16,6 @@ import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -80,6 +78,7 @@ class MainActivity : ComponentActivity() {
         when (obrazovka) {
             "psn", "psnqr" -> ukazPripojeni()
             "nastaveni" -> ukazHlavni()
+            "deepl" -> ukazNastaveni()
             "pripojeni" -> ukazHlavni()
             else -> super.onBackPressed()
         }
@@ -168,21 +167,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Stránka Nastavení: jazyk a klíče DeepL, výstup titulků, co překládat. */
+    /** Stránka Nastavení: překlad (DeepL), výstup titulků, co překládat. */
     private fun ukazNastaveni() {
         zastavServer()
         obrazovka = "nastaveni"
         nast.napovedy = false // menu a nápovědy se nepřekládají samy – žlutý rámeček při hraní
-        val j = Texty.JAZYKY.firstOrNull { it.kod == jazyk } ?: Texty.JAZYKY[0]
         setContent {
             PlayCaperTema {
                 TelefonKostra(1, ::t, naDomu = { ukazHlavni() }, naNastaveni = {}) {
                     NastaveniObrazovka(
-                        t = ::t, jazykNazev = "${j.vlajka}  ${j.nazev}",
+                        t = ::t,
                         deeplPruh = { DeeplLimit.pruh(it, 13f, Color.GRAY) },
                         tv = { tvKarta() }, lgStav = { lgStavView() },
                         dialogy = nast.dialogy, naDialogy = { nast.dialogy = it },
-                        naDeepl = { zadejDeeplKlic() }, naVystup = { vyberVystupTv() },
+                        naDeepl = { ukazDeepl() }, naVystup = { vyberVystupTv() },
                     )
                 }
             }
@@ -253,53 +251,54 @@ class MainActivity : ComponentActivity() {
         else (if (Propojeni.Vysilac.cilIp != null) TvProfily.aktivniId else p.posledniId)?.let { p.najdi(it) }
     }.apply { textSize = 13f * SKALA }
 
+    // ------------------------------------------------------------------ Nastavení → DeepL
+
+    private var deeplUlozene by androidx.compose.runtime.mutableStateOf(emptyList<String>())
+    private var deeplStavy by androidx.compose.runtime.mutableStateOf(emptyMap<String, StavKlice>())
+
     /**
-     * Nepovinné vlastní klíče DeepL (až [Nastaveni.MAX_DEEPL_KLICU], každý člověk svůj).
-     * Používají se v pořadí; překladač je čte při každé větě, změna platí hned.
+     * Podstránka s popisem DeepL a nepovinnými vlastními klíči (až [Nastaveni.MAX_DEEPL_KLICU],
+     * každý člověk svůj). Používají se v pořadí; překladač je čte při každé větě, změna platí hned.
      */
-    private fun zadejDeeplKlic() {
-        val ulozene = nast.deeplKlice
-        val obsah = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(4), dp(20), 0) }
-        val pole = mutableListOf<EditText>()
-        val stavy = mutableListOf<TextView>()
-        fun plnaSirka() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        for (i in 0 until Nastaveni.MAX_DEEPL_KLICU) {
-            val p = EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                isSingleLine = true
-                textSize = 16f
-                hint = if (i == 0) "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx"
-                    else t("deeplKlicDalsi").replace("{n}", (i + 1).toString())
-                setText(ulozene.getOrNull(i) ?: "")
+    private fun ukazDeepl() {
+        obrazovka = "deepl"
+        deeplUlozene = nast.deeplKlice
+        nactiDeeplStavy(deeplUlozene)
+        setContent {
+            PlayCaperTema {
+                DeeplObrazovka(
+                    t = ::t, ulozene = deeplUlozene, stavy = deeplStavy,
+                    naZpet = { ukazNastaveni() },
+                    naZiskat = { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.deepl.com/pro-api"))) } },
+                    naUlozit = { pole ->
+                        nast.deeplKlice = pole
+                        deeplUlozene = nast.deeplKlice
+                        nactiDeeplStavy(deeplUlozene)
+                        android.widget.Toast.makeText(this, t("deeplUlozeno"), android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                )
             }
-            // stav limitu pod každým uloženým klíčem
-            val s = TextView(this).apply {
-                textSize = 13f
-                text = t("deeplLimitNacitam")
-                visibility = if (ulozene.getOrNull(i) != null) View.VISIBLE else View.GONE
-            }
-            pole += p; stavy += s
-            obsah.addView(p, plnaSirka().apply { if (i > 0) topMargin = dp(8) })
-            obsah.addView(s, plnaSirka().apply { leftMargin = dp(4) })
         }
-        if (ulozene.isNotEmpty()) Thread {
-            val nactene = ulozene.map { Prekladac.nactiDeeplVyuziti(it) }
-            runOnUiThread {
-                nactene.forEachIndexed { i, stav -> stavy[i].text = DeeplLimit.popisKlice(stav, jazyk) }
-                DeeplLimit.uloz(ulozene, nactene)
-            }
-        }.start()
-        android.app.AlertDialog.Builder(this)
-            .setTitle(t("deeplNadpis"))
-            .setMessage(t("deeplText"))
-            .setView(android.widget.ScrollView(this).apply { addView(obsah) })
-            .setPositiveButton(t("deeplUlozit")) { _, _ ->
-                nast.deeplKlice = pole.map { it.text.toString() }
-                obnovAktualni(obrazovka == "nastaveni")
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
     }
+
+    /** Načte limit každého klíče na pozadí; stav se ukáže pod polem a předá se i proužkům. */
+    private fun nactiDeeplStavy(klice: List<String>) {
+        deeplStavy = DeeplLimit.ulozene(klice)?.let { stavyKlicu(klice, it) } ?: emptyMap()
+        if (klice.isEmpty()) return
+        Thread {
+            val nactene = klice.map { Prekladac.nactiDeeplVyuziti(it) }
+            runOnUiThread {
+                DeeplLimit.uloz(klice, nactene)
+                if (deeplUlozene == klice) deeplStavy = stavyKlicu(klice, nactene)
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
+    private fun stavyKlicu(klice: List<String>, stavy: List<Prekladac.DeeplVyuziti>) =
+        klice.zip(stavy).associate { (klic, stav) ->
+            val chyba = stav !is Prekladac.DeeplVyuziti.Ok || stav.vycerpano
+            klic to StavKlice(DeeplLimit.popisKlice(stav, jazyk), chyba)
+        }
 
     private fun vyberVystupTv() {
         TvVyber(this, { tv, platforma ->

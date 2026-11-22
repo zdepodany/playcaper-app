@@ -208,28 +208,32 @@ private fun KonzoleRadek(nazev: String, stav: Pair<String, String>, t: (String) 
 @Composable
 internal fun NastaveniObrazovka(
     t: (String) -> String,
-    jazykNazev: String, deeplPruh: (android.content.Context) -> View?,
+    deeplPruh: (android.content.Context) -> View?,
     tv: () -> TvKarta, lgStav: (android.content.Context) -> View,
     dialogy: Boolean, naDialogy: (Boolean) -> Unit,
     naDeepl: () -> Unit, naVystup: () -> Unit,
 ) {
     Text(t("navNastaveni"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
 
-    // --- jazyk
-    Nadpis(t("hlJazyk"))
+    // --- překlad (DeepL → podstránka)
+    Nadpis(t("hlPreklad"))
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh), modifier = Modifier.fillMaxWidth()) {
+        val ctx = LocalContext.current
+        val barva = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+        val maPruh = remember { deeplPruh(ctx) != null }
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = { Text(jazykNazev) },
-            supportingContent = { Text(t("zdrojKratce")) },
+            headlineContent = { Text(t("deeplRadek")) },
+            supportingContent = {
+                if (maPruh) AndroidView(
+                    factory = { deeplPruh(it)!!.also { v -> (v as? android.widget.TextView)?.setTextColor(barva) } },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+                else Text(t("deeplRadekVypnuto"))
+            },
+            trailingContent = { Icon(painterResource(R.drawable.ic_chevron_right), contentDescription = null) },
+            modifier = Modifier.clickable(onClick = naDeepl),
         )
-        Column(Modifier.clickable(onClick = naDeepl).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-            val ctx = LocalContext.current
-            val barva = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
-            val maPruh = remember { deeplPruh(ctx) != null }
-            if (maPruh) AndroidView(factory = { deeplPruh(it)!!.also { v -> (v as? android.widget.TextView)?.setTextColor(barva) } })
-            else Text(t("deeplPridat"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-        }
     }
 
     // --- výstup titulků

@@ -398,15 +398,29 @@ object Texty {
         "hlTel3" to listOf("3. Kde chceš titulky?", "3. Kde chceš titulky?"),
         "hlTel4" to listOf("4. Co překládat?", "4. Čo prekladať?"),
         "zdrojKratce" to listOf("z angličtiny", "z angličtiny"),
-        "deeplPridat" to listOf("+ Přidat klíč DeepL pro lepší překlad", "+ Pridať kľúč DeepL pre lepší preklad"),
         "hlVystup" to listOf("Titulky", "Titulky"),
         "napovedyHint" to listOf("Menu, úkoly a dopisy přeložíš při hraní žlutým rámečkem.",
             "Menu, úlohy a listy preložíš pri hraní žltým rámčekom."),
-        "deeplNadpis" to listOf("Klíče DeepL (nepovinné)", "Kľúče DeepL (nepovinné)"),
-        "deeplText" to listOf(
-            "S klíčem k DeepL API překládá PlayCaption přednostně přes DeepL. Klíč zdarma (DeepL API Free) získáš na deepl.com/pro-api. Když hraje víc lidí, může sem každý vložit svůj klíč. Používají se postupně a po vyčerpání všech převezme překlad Google. Prázdné pole klíč odebere.",
-            "S kľúčom k DeepL API prekladá PlayCaption prednostne cez DeepL. Kľúč zadarmo (DeepL API Free) získaš na deepl.com/pro-api. Keď hrá viac ľudí, môže sem každý vložiť svoj kľúč. Používajú sa postupne a po vyčerpaní všetkých prevezme preklad Google. Prázdne pole kľúč odoberie."),
-        "deeplKlicDalsi" to listOf("Klíč {n} (nepovinné)", "Kľúč {n} (nepovinné)"),
+        "hlPreklad" to listOf("Překlad", "Preklad"),
+        "deeplRadek" to listOf("DeepL", "DeepL"),
+        "deeplRadekVypnuto" to listOf("Nepoužívá se – překládá Google", "Nepoužíva sa – prekladá Google"),
+        "deeplHlJak" to listOf("Jak to funguje", "Ako to funguje"),
+        "deeplJak" to listOf(
+            "DeepL překládá přirozeněji než Google, hlavně delší věty a dialogy. Je nepovinný: bez klíče překládá Google zdarma a bez nastavení.\n\n" +
+                "• Klíč zdarma (DeepL API Free) dává 500 000 znaků měsíčně. Na začátku měsíce se limit obnoví.\n" +
+                "• Když hraje víc lidí, může si každý vložit svůj klíč. Používají se postupně, odshora dolů.\n" +
+                "• Po vyčerpání všech klíčů převezme překlad automaticky Google.\n" +
+                "• Krátké volby v dialozích DeepL nečerpají, ty překládá rovnou Google.",
+            "DeepL prekladá prirodzenejšie než Google, hlavne dlhšie vety a dialógy. Je nepovinný: bez kľúča prekladá Google zadarmo a bez nastavenia.\n\n" +
+                "• Kľúč zadarmo (DeepL API Free) dáva 500 000 znakov mesačne. Na začiatku mesiaca sa limit obnoví.\n" +
+                "• Keď hrá viac ľudí, môže si každý vložiť svoj kľúč. Používajú sa postupne, zhora nadol.\n" +
+                "• Po vyčerpaní všetkých kľúčov prevezme preklad automaticky Google.\n" +
+                "• Krátke voľby v dialógoch DeepL nečerpajú, tie prekladá rovno Google."),
+        "deeplZiskat" to listOf("Získat klíč zdarma na deepl.com", "Získať kľúč zadarmo na deepl.com"),
+        "deeplHlKlice" to listOf("Klíče API", "Kľúče API"),
+        "deeplKlicePopis" to listOf("Prázdné pole klíč odebere.", "Prázdne pole kľúč odoberie."),
+        "deeplKlicN" to listOf("Klíč {n}", "Kľúč {n}"),
+        "deeplUlozeno" to listOf("Klíče uloženy", "Kľúče uložené"),
         "deeplPocetKlicu" to listOf("{n} klíče", "{n} kľúče"),
         "deeplPocetKlicu5" to listOf("{n} klíčů", "{n} kľúčov"),
         "deeplNefunguje" to listOf("nefunguje: {n}", "nefunguje: {n}"),
