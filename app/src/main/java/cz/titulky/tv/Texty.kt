@@ -30,7 +30,7 @@ object Texty {
         "pokracovat" to listOf("Pokračovat", "Pokračovať", "Weiter", "Dalej", "Continuer", "Continuar", "Continua"),
         "jazykPrekladu" to listOf("Jazyk překladu", "Jazyk prekladu", "Übersetzungssprache", "Język tłumaczenia", "Langue de traduction", "Idioma de traducción", "Lingua di traduzione"),
         "zdroj" to listOf("Zdrojový jazyk: angličtina", "Zdrojový jazyk: angličtina", "Ausgangssprache: Englisch", "Język źródłowy: angielski", "Langue source : anglais", "Idioma de origen: inglés", "Lingua di origine: inglese"),
-        "pripojitKonzoli" to listOf("Připojit ke konzoli", "Pripojiť ku konzole", "Mit Konsole verbinden", "Połącz z konsolą", "Connecter la console", "Conectar con la consola", "Collega la console"),
+        "pripojitKonzoli" to listOf("Připojit PS5", "Pripojiť PS5", "Mit Konsole verbinden", "Połącz z konsolą", "Connecter la console", "Conectar con la consola", "Collega la console"),
         "pripojit" to listOf("Připojit", "Pripojiť", "Verbinden", "Połącz", "Connecter", "Conectar", "Collega"),
         "znovuSparovat" to listOf("Znovu spárovat", "Znova spárovať", "Neu koppeln", "Sparuj ponownie", "Réassocier", "Volver a vincular", "Riassocia"),
         "pripojitPopis" to listOf(

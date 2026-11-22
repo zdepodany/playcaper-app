@@ -5,6 +5,9 @@ import android.view.View
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.FabPosition
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -86,10 +89,13 @@ internal fun PlayCaperTema(content: @Composable () -> Unit) {
 internal fun TelefonKostra(
     vybrana: Int, t: (String) -> String,
     naDomu: () -> Unit, naNastaveni: () -> Unit,
+    plovouci: (@Composable () -> Unit)? = null,
     obsah: @Composable () -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        floatingActionButton = { if (plovouci != null) Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) { plovouci() } },
+        floatingActionButtonPosition = FabPosition.Center,
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -104,7 +110,8 @@ internal fun TelefonKostra(
         },
     ) { vnitrek ->
         Column(
-            Modifier.padding(vnitrek).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
+            Modifier.padding(vnitrek).verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = if (plovouci != null) 96.dp else 16.dp),
         ) { obsah() }
     }
 }
@@ -124,12 +131,21 @@ internal fun DomuObrazovka(
     nazevAplikace: String, verze: String,
     stavNactiti: () -> StavDomu,
     naLogo: () -> Unit,
-    naPs: () -> Unit, naHrat: () -> Unit,
+    naPs: () -> Unit, naHrat: () -> Unit, naNastaveni: () -> Unit,
 ) {
     // stav spojení se čte každou vteřinu (jako dřív pruh na hlavní obrazovce)
     var stav by remember { mutableStateOf(stavNactiti()) }
     LaunchedEffect(Unit) { while (true) { stav = stavNactiti(); delay(1000) } }
+    val sparovano = stav.ps.first != "off"
 
+    TelefonKostra(
+        0, t, naDomu = {}, naNastaveni = naNastaveni,
+        plovouci = {
+            Button(onClick = naHrat, enabled = sparovano, modifier = Modifier.fillMaxWidth().height(64.dp)) {
+                Text(t("hratBtn"), style = MaterialTheme.typography.titleLarge)
+            }
+        },
+    ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
             nazevAplikace, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
@@ -138,18 +154,13 @@ internal fun DomuObrazovka(
         Text(verze, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
     }
     // bez spárované konzole karta Stav nic užitečného neřekne – stačí řádek konzole a neaktivní Hrát
-    val sparovano = stav.ps.first != "off"
     if (sparovano) {
         Spacer(Modifier.height(16.dp))
         StavKarta(stav)
     }
 
     Nadpis(t("hlKonzole"))
-    KonzoleRadek("PlayStation", stav.ps, t, naPs)
-
-    Spacer(Modifier.height(24.dp))
-    Button(onClick = naHrat, enabled = sparovano, modifier = Modifier.fillMaxWidth().height(64.dp)) {
-        Text(t("hratBtn"), style = MaterialTheme.typography.titleLarge)
+    KonzoleRadek("PlayStation 5", stav.ps, t, naPs)
     }
 }
 
@@ -193,6 +204,7 @@ private fun KonzoleRadek(nazev: String, stav: Pair<String, String>, t: (String) 
     Card(colors = CardDefaults.cardColors(containerColor = pozadi), modifier = Modifier.fillMaxWidth()) {
         ListItem(
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            leadingContent = { Icon(painterResource(R.drawable.ic_playstation), contentDescription = null, modifier = Modifier.width(36.dp)) },
             headlineContent = { Text(nazev, fontWeight = FontWeight.Bold) },
             supportingContent = { Text(popis.replaceFirstChar { it.uppercase() }) },
             trailingContent = {

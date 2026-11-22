@@ -144,15 +144,14 @@ class MainActivity : ComponentActivity() {
     private fun vykresliDomu() {
         setContent {
             PlayCaperTema {
-                TelefonKostra(0, ::t, naDomu = {}, naNastaveni = { ukazNastaveni() }) {
                     DomuObrazovka(
                         t = ::t, nazevAplikace = getString(R.string.app_name), verze = "BETA $verze",
                         stavNactiti = { spocitejStav() },
                         naLogo = { Zaznam.ukaz(this) },
                         naPs = { ukazPripojeni() },
                         naHrat = { if (udaje.sparovano) startActivity(Intent(this, TelefonActivity::class.java)) else ukazPripojeni() },
+                        naNastaveni = { ukazNastaveni() },
                     )
-                }
                 if (pripojeniOtevreno) {
                     val revize = psnRevize // změna přihlášení → přepočítat stav
                     PripojeniSheet(

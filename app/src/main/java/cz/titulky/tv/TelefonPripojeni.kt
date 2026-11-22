@@ -163,12 +163,11 @@ internal fun PripojeniSheet(
                 1 -> {
                     // krátký úvod: proč je potřeba druhý účet
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
                         modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                     ) {
                         Column(Modifier.padding(16.dp)) {
                             Text(t("ppUvod"), style = MaterialTheme.typography.bodyMedium)
-                            Text(t("ppUvodBezUctu"), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
                         }
                     }
                     Krok(1, t("ppK1Nadpis"), t("ppK1"), ikona = R.drawable.ic_playstation) {
