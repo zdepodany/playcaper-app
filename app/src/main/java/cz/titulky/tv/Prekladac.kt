@@ -2,7 +2,6 @@ package cz.titulky.tv
 
 import android.os.Handler
 import android.os.Looper
-import android.util.LruCache
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
@@ -50,7 +49,7 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
         val stary = translator
         cil = kod
         translator = novyTranslator(kod)
-        cache.evictAll()
+        cache.prepniJazyk(kod)
         runCatching { stary.close() }
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
     }
@@ -85,8 +84,12 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
         }, { chyba("Překlad není dostupný v časovém rozpočtu") })
     }
 
-    /** Paměť na už přeložené věty – ve hrách se věty často opakují. */
-    private val cache = LruCache<String, String>(500)
+    /**
+     * Paměť na už přeložené věty – ve hrách se věty často opakují. Ukládá se do souboru
+     * (přežije restart) a hledá se podle sjednoceného textu (PC-008). Bez kontextu jen v paměti.
+     */
+    private val cache = PametPrekladu(context?.filesDir?.let { java.io.File(it, "preklady") })
+        .also { it.prepniJazyk(cilovy) }
 
     var pripraven = false
         private set
@@ -124,6 +127,7 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
         cache.get(vstup)?.let { zdroj = "paměť"; hotovo(it); return }
         // služba mezitím skončila (překladač zavřený) → nic nedělat, hlavně nespadnout
         if (zavreno) { chyba("překladač zavřený"); return }
+        val jazyk = cil
 
         if (runCatching { sit.execute {
             val ted = System.currentTimeMillis()
@@ -151,7 +155,8 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
             ui.post {
                 if (!hotovyText.isNullOrBlank()) {
                     zdroj = odkud
-                    cache.put(vstup, hotovyText)
+                    // mezitím přepnutý jazyk → do paměti nového jazyka neukládat (paměť je trvalá)
+                    if (cil == jazyk) cache.put(vstup, hotovyText)
                     hotovo(hotovyText)
                 } else {
                     // nic online nejde → překlad v televizi
@@ -324,6 +329,7 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
 
     fun zavri() {
         zavreno = true
+        cache.zavri()
         runCatching { translator.close() }
         sit.shutdown()
         pribehSit.shutdown()

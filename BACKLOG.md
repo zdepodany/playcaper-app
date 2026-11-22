@@ -165,3 +165,22 @@ Souvisí s PC-001; nezastavuje další OCR práci.
   `docs/PRIBEHOVY-REZIM.md`.
 - Pro rozšíření: nejdříve změřit správná a chybná spojení na skutečných
   dialozích. Nezavádět opravy jednotlivých slov, LLM ani LG změny bez důkazu.
+
+## PC-008 – Trvalá paměť přeložených vět
+
+Stav: implementováno 22. 11. 2026 (necommitnuto), čeká na herní ověření.
+Cíl je méně online překladů, hlavně šetřit měsíční limit DeepL.
+
+- Původně: `LruCache<String, String>(500)` v `Prekladac.kt`, jen v RAM, smazaná
+  při restartu `RemotePlayService` a při změně jazyka.
+- Záznam z 22. 11. 2026 ukázal obě ztráty: stejná věta přes DeepL dvakrát během
+  4 s („a Proper job.“ / „a proper job.“) a znovu po reinstalaci aplikace.
+- Hotovo – `PametPrekladu.kt`:
+  - soubor na jazyk `files/preklady/preklady-<jazyk>.json`, nejvýš 5000 vět (LRU),
+    načítání na pozadí, ukládání nejvýš jednou za 20 s a při zavření služby,
+    zápis přes dočasný soubor; poškozený soubor se ignoruje;
+  - sjednocený klíč: malá písmena, bez diakritiky z OCR, jednotné apostrofy,
+    bez uvozovek a běžné interpunkce; otazník se zachovává (otázka ≠ oznámení);
+  - překlad dokončený po přepnutí jazyka se do paměti neukládá.
+- Zbývá: po pár hodinách hraní spočítat ze záznamu podíl `paměť` vs. `deepl`
+  a zkontrolovat, že sjednocení neslučuje věty s jiným významem.
