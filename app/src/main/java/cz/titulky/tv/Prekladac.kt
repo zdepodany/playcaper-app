@@ -17,8 +17,10 @@ import java.util.concurrent.Executors
 /**
  * Překlad angličtina → čeština.
  *
+ * 0) DeepL – jen když si uživatel zadal vlastní klíč (Free 500 000 znaků/měsíc).
  * 1) Google Překladač přes internet (bez klíče, neoficiální přístup – může ho kdykoli omezit).
- * 2) Když nejde (bez internetu, zablokováno, pomalé), přeloží to Google ML Kit přímo v televizi.
+ * 2) Microsoft (Edge), 3) MyMemory.
+ * 4) Když nic online nejde (bez internetu, zablokováno, pomalé), přeloží to Google ML Kit přímo v televizi.
  *
  * Výsledek se vždy vrací na hlavním vlákně.
  */
@@ -27,6 +29,9 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
     /** Cílový jazyk překladu (kód: cs, sk, de, pl, fr, es, it). */
     @Volatile var cil: String = cilovy
         private set
+
+    /** Nastavení kvůli klíči DeepL – čte se při každé větě, ať změna platí hned. */
+    private val nast = context?.let { Nastaveni(it) }
 
     private fun novyTranslator(kod: String): Translator = Translation.getClient(
         TranslatorOptions.Builder()
@@ -65,7 +70,7 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
             if (!pribehObsazen.compareAndSet(false, true)) false
             else try {
                 pribehSit.execute {
-                    val vysledek = try { runCatching { google(t, jazyk) }.getOrNull() }
+                    val vysledek = try { zkusDeepl(t, jazyk) ?: runCatching { google(t, jazyk) }.getOrNull() }
                     finally { pribehObsazen.set(false) }
                     ui.post {
                         if (!vysledek.isNullOrBlank() && cil == jazyk && !zavreno) cache.put(t, vysledek)
@@ -86,12 +91,14 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
     var pripraven = false
         private set
 
-    /** Odkud byl poslední překlad: "google", "tv" nebo "paměť" (pro záznam). */
+    /** Odkud byl poslední překlad: "deepl", "google", "microsoft", "mymemory", "tv" nebo "paměť" (pro záznam). */
     @Volatile var zdroj = ""
         private set
 
     /** Když Google selže, chvíli ho nezkoušet (ať každá věta nečeká na chybu). */
     @Volatile private var googlePauzaDo = 0L
+    /** DeepL: do kdy který klíč nezkoušet (nový / změněný klíč v mapě není → zkusí se hned). */
+    private val deeplPauzy = java.util.concurrent.ConcurrentHashMap<String, Long>()
     @Volatile private var edgePauzaDo = 0L
     @Volatile private var myMemoryPauzaDo = 0L
     @Volatile private var edgeToken: String? = null
@@ -119,8 +126,11 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
             val ted = System.currentTimeMillis()
             var vysledek: String? = null
             var odkud = ""
+            // 0) DeepL – jen s vlastním klíčem uživatele
+            vysledek = zkusDeepl(vstup, cil)
+            if (!vysledek.isNullOrBlank()) odkud = "deepl"
             // 1) Google – 2 pokusy (udržované spojení mohl Google mezitím zavřít)
-            if (ted >= googlePauzaDo) {
+            if (vysledek.isNullOrBlank() && ted >= googlePauzaDo) {
                 vysledek = runCatching { google(vstup) }.getOrNull() ?: runCatching { google(vstup) }.getOrNull()
                 if (vysledek.isNullOrBlank()) { googlePauzaDo = ted + 30_000L; chybGooglu++ } else odkud = "google"
             }
@@ -174,6 +184,58 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
                 .addOnSuccessListener { cesky -> zdroj = "tv"; hotovo(cesky) }
                 .addOnFailureListener { chyba(it.message ?: "Neznámá chyba") }
         }.onFailure { chyba(it.message ?: "překladač zavřený") }
+    }
+
+    /**
+     * DeepL přes zadané klíče v pořadí. Vrací null = zkusit další službu.
+     * 456 (vyčerpaný měsíční limit) a 403 (špatný klíč): klíč 1 h vynechat a hned zkusit další.
+     * 429 / síť / jiné chyby: klíč 30 s vynechat a další klíče teď nezkoušet (selhaly by stejně
+     * a každý pokus by zdržel větu).
+     */
+    private fun zkusDeepl(text: String, cilJazyk: String): String? {
+        for (klic in nast?.deeplKlice.orEmpty()) {
+            if (System.currentTimeMillis() < (deeplPauzy[klic] ?: 0L)) continue
+            val (vysledek, pauza) = runCatching { deepl(text, cilJazyk, klic) }.getOrElse { null to DEEPL_PAUZA_KRATKA }
+            if (!vysledek.isNullOrBlank()) return vysledek
+            deeplPauzy[klic] = System.currentTimeMillis() + pauza
+            if (pauza != DEEPL_PAUZA_KLIC) return null
+        }
+        return null
+    }
+
+    /**
+     * Oficiální DeepL API v2. Klíč končící na ":fx" je Free (api-free.deepl.com), jinak Pro.
+     * Vrací (překlad nebo null, jak dlouho pak DeepL nezkoušet).
+     */
+    private fun deepl(text: String, cilJazyk: String, klic: String): Pair<String?, Long> {
+        val hostitel = if (klic.endsWith(":fx")) "api-free.deepl.com" else "api.deepl.com"
+        val spojeni = URL("https://$hostitel/v2/translate").openConnection() as HttpURLConnection
+        try {
+            spojeni.connectTimeout = 1500; spojeni.readTimeout = 2500
+            spojeni.requestMethod = "POST"
+            spojeni.doOutput = true
+            spojeni.setRequestProperty("Authorization", "DeepL-Auth-Key $klic")
+            spojeni.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            val telo = org.json.JSONObject()
+                .put("text", JSONArray().put(text))
+                .put("source_lang", "EN")
+                .put("target_lang", cilJazyk.uppercase())
+                .toString()
+            spojeni.outputStream.use { it.write(telo.toByteArray(Charsets.UTF_8)) }
+            when (spojeni.responseCode) {
+                200 -> {}
+                403, 456 -> return null to DEEPL_PAUZA_KLIC
+                else -> return null to DEEPL_PAUZA_KRATKA
+            }
+            val json = spojeni.inputStream.bufferedReader().use { it.readText() }
+            // odpověď: {"translations":[{"detected_source_language":"EN","text":"…"}]}
+            val preklad = org.json.JSONObject(json).getJSONArray("translations")
+                .getJSONObject(0).optString("text").trim()
+            return preklad.ifEmpty { null } to DEEPL_PAUZA_KRATKA
+        } catch (e: Exception) {
+            spojeni.disconnect()
+            throw e
+        }
     }
 
     /** Neoficiální adresa Google Překladače (stejnou používají rozšíření do prohlížečů). */
@@ -264,7 +326,59 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
         pribehSit.shutdown()
     }
 
+    /** Stav měsíčního limitu DeepL pro okno s klíčem. */
+    sealed class DeeplVyuziti {
+        data class Ok(val pouzito: Long, val limit: Long) : DeeplVyuziti() {
+            val procenta get() = if (limit > 0) (pouzito * 100 / limit).toInt() else 0
+            val vycerpano get() = limit > 0 && pouzito >= limit
+        }
+        /** 403 – klíč DeepL nezná. */
+        object SpatnyKlic : DeeplVyuziti()
+        /** Síť, jiná odpověď serveru, nečitelný JSON. */
+        object Chyba : DeeplVyuziti()
+    }
+
     companion object {
+        /** Klíč vyčerpaný / neplatný – vynechat hodinu a přejít na další. */
+        private const val DEEPL_PAUZA_KLIC = 60 * 60_000L
+        /** Přechodná chyba (síť, 429) – zkusit znovu za chvíli. */
+        private const val DEEPL_PAUZA_KRATKA = 30_000L
+
+        /**
+         * Součet využití přes všechny klíče pro proužek na hlavní obrazovce.
+         * null = žádný klíč nefunguje (pak se ukáže stav prvního klíče).
+         */
+        fun soucetDeepl(stavy: List<DeeplVyuziti>): DeeplVyuziti.Ok? {
+            val ok = stavy.filterIsInstance<DeeplVyuziti.Ok>()
+            if (ok.isEmpty()) return null
+            return DeeplVyuziti.Ok(ok.sumOf { it.pouzito.coerceAtMost(it.limit) }, ok.sumOf { it.limit })
+        }
+
+        /**
+         * Načte využití klíče z DeepL (`GET /v2/usage`); dotaz se do limitu nepočítá.
+         * Blokuje – volat mimo hlavní vlákno.
+         */
+        fun nactiDeeplVyuziti(klic: String): DeeplVyuziti = runCatching {
+            val hostitel = if (klic.endsWith(":fx")) "api-free.deepl.com" else "api.deepl.com"
+            val spojeni = URL("https://$hostitel/v2/usage").openConnection() as HttpURLConnection
+            try {
+                spojeni.connectTimeout = 4000; spojeni.readTimeout = 5000
+                spojeni.setRequestProperty("Authorization", "DeepL-Auth-Key $klic")
+                when (spojeni.responseCode) {
+                    200 -> prectiDeeplVyuziti(spojeni.inputStream.bufferedReader().use { it.readText() })
+                    403 -> DeeplVyuziti.SpatnyKlic
+                    else -> DeeplVyuziti.Chyba
+                }
+            } finally { spojeni.disconnect() }
+        }.getOrDefault(DeeplVyuziti.Chyba)
+
+        /** Odpověď: {"character_count":123456,"character_limit":500000} */
+        internal fun prectiDeeplVyuziti(json: String): DeeplVyuziti = runCatching {
+            val o = org.json.JSONObject(json)
+            if (!o.has("character_count") || !o.has("character_limit")) DeeplVyuziti.Chyba
+            else DeeplVyuziti.Ok(o.getLong("character_count"), o.getLong("character_limit"))
+        }.getOrDefault(DeeplVyuziti.Chyba)
+
         /** Hovorová angličtina ze her → spisovná, ať překladač rozumí. */
         private val SLANG = listOf(
             "gonna" to "going to",

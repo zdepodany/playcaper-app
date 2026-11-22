@@ -438,8 +438,23 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 if (telefon) topMargin = dp(2) else leftMargin = dp(8)
             })
-        jazykKarta.addView(jazykTexty, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        jazykKarta.addView(tlacitkoSede(t("tvZmenitKratce")) { ukazJazyk() })
+        // nahoře jazyk + Změnit, pod tím řádek DeepL (klepnutím se otevře okno s klíčem)
+        val jazykHorni = vodorovne().apply { gravity = Gravity.CENTER_VERTICAL }
+        jazykHorni.addView(jazykTexty, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        jazykHorni.addView(tlacitkoSede(t("tvZmenitKratce")) { ukazJazyk() })
+        val deeplRadek = (deeplLimitRadek() ?: text(t("deeplPridat"), pismo(12f, 14f), TEXT2).jedenRadek()).let { obsahDeepl ->
+            FrameLayout(this).apply {
+                isFocusable = true
+                isClickable = true
+                background = vyber(Color.TRANSPARENT, radius = 10f)
+                setPadding(dp(6), dp(6), dp(6), dp(6))
+                setOnClickListener { zadejDeeplKlic() }
+                addView(obsahDeepl, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+        }
+        jazykKarta.orientation = LinearLayout.VERTICAL
+        jazykKarta.addView(jazykHorni, plnaSirka())
+        jazykKarta.addView(deeplRadek, plnaSirka().apply { topMargin = dp(6); leftMargin = -dp(6); rightMargin = -dp(6) })
 
         // ---------- stav (pruh, který se při připojování plní zeleně)
         stavKarta = FrameLayout(this).apply {
@@ -1213,6 +1228,56 @@ class MainActivity : Activity() {
             }
         }
     }
+
+    /**
+     * Nepovinné vlastní klíče DeepL (až [Nastaveni.MAX_DEEPL_KLICU], každý člověk svůj).
+     * Používají se v pořadí; překladač je čte při každé větě, změna platí hned.
+     */
+    private fun zadejDeeplKlic() {
+        val ulozene = nast.deeplKlice
+        val obsah = svisle().apply { setPadding(dp(20), dp(4), dp(20), 0) }
+        val pole = mutableListOf<EditText>()
+        val stavy = mutableListOf<TextView>()
+        for (i in 0 until Nastaveni.MAX_DEEPL_KLICU) {
+            val p = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                isSingleLine = true
+                textSize = 16f
+                hint = if (i == 0) "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx"
+                    else t("deeplKlicDalsi").replace("{n}", (i + 1).toString())
+                setText(ulozene.getOrNull(i) ?: "")
+            }
+            // stav limitu pod každým uloženým klíčem
+            val s = TextView(this).apply {
+                textSize = 13f
+                text = t("deeplLimitNacitam")
+                visibility = if (ulozene.getOrNull(i) != null) View.VISIBLE else View.GONE
+            }
+            pole += p; stavy += s
+            obsah.addView(p, plnaSirka().apply { if (i > 0) topMargin = dp(8) })
+            obsah.addView(s, plnaSirka().apply { leftMargin = dp(4) })
+        }
+        if (ulozene.isNotEmpty()) Thread {
+            val nactene = ulozene.map { Prekladac.nactiDeeplVyuziti(it) }
+            runOnUiThread {
+                nactene.forEachIndexed { i, stav -> stavy[i].text = DeeplLimit.popisKlice(stav, jazyk) }
+                DeeplLimit.uloz(ulozene, nactene)
+            }
+        }.start()
+        android.app.AlertDialog.Builder(this)
+            .setTitle(t("deeplNadpis"))
+            .setMessage(t("deeplText"))
+            .setView(android.widget.ScrollView(this).apply { addView(obsah) })
+            .setPositiveButton(t("deeplUlozit")) { _, _ ->
+                nast.deeplKlice = pole.map { it.text.toString() }
+                ukazHlavni()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** Proužek využití DeepL pod vybraným jazykem (součet přes všechny klíče); null = bez klíče. */
+    private fun deeplLimitRadek(): View? = DeeplLimit.pruh(this, pismo(11.5f, 13f) * SKALA, TEXT2)
 
     /** Ruční adresa televize (když se telefon a televize v síti „nevidí“). */
     private fun zadejAdresuTv() {

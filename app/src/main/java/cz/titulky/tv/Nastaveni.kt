@@ -13,6 +13,25 @@ class Nastaveni(context: Context) {
 
     val jazykNeboCs get() = jazyk ?: "cs"
 
+    /**
+     * Vlastní klíče k DeepL API (nepovinné, nejvýš [MAX_DEEPL_KLICU]) v pořadí použití.
+     * Po vyčerpání jednoho překladač přejde na další. Prázdný seznam = DeepL se nepoužívá.
+     * Starší verze ukládala jediný klíč pod "deeplKlic" – ten se bere jako první.
+     */
+    var deeplKlice: List<String>
+        get() = (prefs.getString("deeplKlice", null) ?: prefs.getString("deeplKlic", null) ?: "")
+            .let(::vycistiDeeplKlice)
+        set(v) = prefs.edit().remove("deeplKlic")
+            .putString("deeplKlice", vycistiDeeplKlice(v.joinToString("\n")).joinToString("\n")).apply()
+
+    companion object {
+        const val MAX_DEEPL_KLICU = 5
+
+        /** Řádky → klíče: oříznout, bez prázdných a duplicit, nejvýš [MAX_DEEPL_KLICU]. */
+        fun vycistiDeeplKlice(text: String): List<String> =
+            text.lines().map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(MAX_DEEPL_KLICU)
+    }
+
     var pribehovy: Boolean
         get() = prefs.getBoolean("pribehovy", false)
         set(v) = prefs.edit().putBoolean("pribehovy", v).apply()

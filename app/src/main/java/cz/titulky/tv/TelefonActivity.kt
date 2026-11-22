@@ -982,6 +982,12 @@ class TelefonActivity : Activity() {
             obnovRezim()
             addView(rezimy, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(stavRadek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            // limit DeepL jen pro informaci (klíče se upravují na hlavní obrazovce); bez klíčů nic
+            DeeplLimit.pruh(this@TelefonActivity, 11.5f, TLUMENA, obnovovat = true)?.let {
+                addView(it, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    leftMargin = dp(16); rightMargin = dp(16); bottomMargin = dp(10)
+                })
+            }
             // GTA VI: tenký pruh západu slunce pod panelem
             pruh = View(this@TelefonActivity)
             addView(pruh, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3)))
