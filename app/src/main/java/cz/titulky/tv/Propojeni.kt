@@ -35,6 +35,15 @@ object Propojeni {
      * PCS1 ZADOST → televize ukáže 4místný kód → PCS1 KOD <kód> → televize pošle údaje (DATA).
      */
     private const val SPAROVANI = "PCS1"
+    /**
+     * U+2063 (neviditelný oddělovač) na začátku textu titulku = vzhled GTA VI na LG/Samsung přijímači.
+     * Starší přijímače ho jen nezobrazí; Android TV přijímač ho odstraní.
+     */
+    const val ZNACKA_GTA = "\u2063"
+
+    /** Text titulku se značkou GTA VI, je-li zapnutá (prázdný text zůstane prázdný = smazat). */
+    fun sVzhledem(text: String, gta: Boolean = Volby.gta) = if (gta && text.isNotEmpty()) ZNACKA_GTA + text else text
+    fun bezVzhledu(text: String) = text.removePrefix(ZNACKA_GTA)
 
     /** Jméno televize, jak ho uvidí telefon v seznamu. */
     fun jmenoZarizeni(c: Context): String =
@@ -241,7 +250,7 @@ object Propojeni {
                         val barvy = casti.drop(5).firstOrNull { it.startsWith("B:") }?.let { b ->
                             runCatching { b.removePrefix("B:").trim().split(",").map { it.trim().toInt() }.toIntArray() }.getOrNull()
                         }
-                        priTitulku(odEscapuj(casti[3]), doba, odEscapuj(casti[4]), rozvrh, barvy)
+                        priTitulku(bezVzhledu(odEscapuj(casti[3])), doba, odEscapuj(casti[4]), rozvrh, barvy)
                     }
                 }.onFailure { if (bezi) chyba = it.javaClass.simpleName }
                 runCatching { socket?.close() }
@@ -501,7 +510,7 @@ object Propojeni {
             // barvy jmen až úplně na konec se značkou "B:" – starší televize je přeskočí
             val b = barvy
             val sBarvami = if (b != null && b.any { it != 0 }) "\tB:" + b.joinToString(",") else ""
-            "$TITULEK\t$cislo\t$doba\t${escapuj(text)}\t${escapuj(napoveda)}$konec$sBarvami".toByteArray(Charsets.UTF_8)
+            "$TITULEK\t$cislo\t$doba\t${escapuj(sVzhledem(text))}\t${escapuj(napoveda)}$konec$sBarvami".toByteArray(Charsets.UTF_8)
         }
 
         private fun posliTed() { if (!pribehRidi) posliData { zprava() } }

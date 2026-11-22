@@ -230,8 +230,8 @@ class TelefonActivity : Activity() {
         if (!::tvTlacitko.isInitialized) return
         // přepínač "Titulky: 📺 Televize | 📱 Telefon" – zeleně to, kde se titulky právě ukazují
         val naTv = Propojeni.Vysilac.cilIp != null
-        segTv.background = zaobleni(Color.parseColor(if (naTv) "#14A23C" else "#00000000"))
-        segTel.background = zaobleni(Color.parseColor(if (!naTv) "#14A23C" else "#00000000"))
+        segTv.background = zaobleni(if (naTv) vz.tvVybrano else Color.TRANSPARENT)
+        segTel.background = zaobleni(if (!naTv) vz.tvVybrano else Color.TRANSPARENT)
         segTv.alpha = if (naTv) 1f else 0.6f
         segTel.alpha = if (!naTv) 1f else 0.6f
     }
@@ -285,6 +285,60 @@ class TelefonActivity : Activity() {
         cornerRadius = 999f * resources.displayMetrics.density
     }
 
+    // ---------------------------------------------------------------- společné prvky obrazovky
+
+    /** Barvy obrazovky – v režimu GTA VI noční Vice City (viz VzhledObrazovky). */
+    private val vz get() = VzhledObrazovky.pro(Volby.gta)
+    private val KARTA get() = vz.karta
+    private val TLUMENA get() = vz.tlumena
+    /** Tučné písmo nadpisů – v GTA VI úzké. */
+    private val tucne: Typeface get() =
+        if (vz.uzkePismo) Typeface.create("sans-serif-condensed", Typeface.BOLD) else Typeface.DEFAULT_BOLD
+    private fun prechod(barvy: IntArray, smer: GradientDrawable.Orientation = GradientDrawable.Orientation.LEFT_RIGHT) =
+        GradientDrawable(smer, barvy).apply { cornerRadius = 999f * resources.displayMetrics.density }
+
+    /** Segmentový přepínač „jedna z možností“ – vybraná je vyplněná barvou. */
+    private fun segmenty(popisy: List<String>, vybrany: Int, barva: Int, akce: (Int) -> Unit) =
+        segmenty(popisy, vybrany, intArrayOf(barva, barva), akce)
+
+    private fun segmenty(popisy: List<String>, vybrany: Int, barvy: IntArray, akce: (Int) -> Unit) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        background = zaobleni(vz.segmentPozadi)
+        setPadding(dp(3), dp(3), dp(3), dp(3))
+        popisy.forEachIndexed { i, popis ->
+            val zvoleno = i == vybrany
+            addView(TextView(this@TelefonActivity).apply {
+                text = popis
+                textSize = 14f
+                typeface = tucne
+                gravity = Gravity.CENTER
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(if (zvoleno) Color.BLACK else vz.segmentText)
+                background = if (zvoleno) prechod(barvy) else null
+                setPadding(dp(8), dp(10), dp(8), dp(10))
+                contentDescription = popis + if (zvoleno) ", vybráno" else ""
+                setOnClickListener { if (i != vybrany) akce(i) }
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        }
+    }
+
+    /** Vypínač v barvě sekce (zapnuto = barva, vypnuto = šedá). */
+    private fun prepinac(barva: Int, zapnuto: Boolean, popis: String, akce: (Boolean) -> Unit) = android.widget.Switch(this).apply {
+        isChecked = zapnuto
+        contentDescription = popis
+        val stavy = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+        thumbTintList = android.content.res.ColorStateList(stavy, intArrayOf(barva, Color.parseColor("#C4C4CC")))
+        trackTintList = android.content.res.ColorStateList(stavy, intArrayOf(Color.argb(140, Color.red(barva), Color.green(barva), Color.blue(barva)), Color.parseColor("#4A4A53")))
+        // obrazovka se po změně staví znovu → až po doběhnutí animace přepínače
+        setOnCheckedChangeListener { _, b -> post { akce(b) } }
+    }
+
+    /** Sekce nastavení, kterou jde rozbalit/sbalit; co je rozbalené, si telefon pamatuje. */
+    private var rozbaleno: MutableSet<String>
+        get() = prefs.getStringSet("telefonRozbaleno", emptySet())!!.toMutableSet()
+        set(v) = prefs.edit().putStringSet("telefonRozbaleno", v).apply()
+
     // ---------------------------------------------------------------- poloha titulků na televizi
 
     /** (střed X, spodní hrana Y, šířka, velikost písma) – stejné jako výchozí poloha na televizi. */
@@ -298,9 +352,10 @@ class TelefonActivity : Activity() {
     /** Kulaté tlačítko se zámečkem: zamčeno = plné barvou, odemčeno = jen obrys. */
     private fun zamek(barva: Int, zamceno: Boolean, prepni: () -> Unit) = TextView(this).apply {
         text = if (zamceno) "🔒" else "🔓"
-        textSize = 20f
+        textSize = 17f
         gravity = Gravity.CENTER
-        alpha = if (zamceno) 1f else 0.55f
+        alpha = if (zamceno) 1f else 0.6f
+        contentDescription = if (zamceno) t("odemknout") else t("zamknout")
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             if (zamceno) setColor(barva) else { setColor(Color.TRANSPARENT); setStroke(dp(2), barva) }
@@ -322,40 +377,84 @@ class TelefonActivity : Activity() {
         if (ukazat) Propojeni.Vysilac.ukazka(t("tvUkazka"))
     }
 
+    /** Zapnout/vypnout volby odpovědí (žlutý rámeček) a dát vědět televizi. */
+    private fun nastavVolbyZapnuto(zap: Boolean) {
+        Volby.zapnuto = zap
+        Volby.uloz(this)
+        Propojeni.Vysilac.trvaleOblast = Volby.zapnuto && Volby.ukazatNaTv
+        if (zap) { ulozAPosliVolby(); ui.removeCallbacks(konecUprav); ui.postDelayed(konecUprav, 3000) }
+        else {
+            Propojeni.Vysilac.upravujiOblast(Volby.oblast, ukazat = false)
+            Propojeni.Vysilac.nastavVolby(emptyList(), -1)
+        }
+    }
+
     /**
-     * Malá "televize" s polohou titulků: tažením prstem se titulky posunou,
-     * posuvníky změní šířku a velikost písma. Vše se hned ukáže i na skutečné televizi.
+     * Nastavení pro televizi: karta s televizí, malá "televize" s rámečky (tažením se posouvají)
+     * a pod ní tři sbalitelné sekce – české titulky, čtení titulků hry, volby odpovědí.
+     * Vše se hned ukáže i na skutečné televizi.
      */
     private fun postavUpravy(): LinearLayout {
         nactiRozvrh()
         val zelena = Color.parseColor("#3CFF6E")
         val obal = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(6), dp(20), dp(10))
+            setPadding(dp(16), dp(6), dp(16), dp(16))
             visibility = View.GONE
         }
-        obal.addView(TextView(this).apply {
-            text = "⚙ " + t("tvNastaveni") + " · " + Propojeni.Vysilac.cilJmeno
-            textSize = 16f
-            setTextColor(Color.WHITE)
-            background = zaobleni(Color.parseColor("#333338"))
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            setOnClickListener { spravaTelevize() }
+
+        // ---- karta s televizí (klepnutí = vybrat jinou / jen telefon)
+        obal.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply { setColor(KARTA); cornerRadius = dp(14).toFloat() }
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            addView(LinearLayout(this@TelefonActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener { spravaTelevize() }
+                addView(TextView(this@TelefonActivity).apply { text = "📺"; textSize = 20f },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(12) })
+                addView(LinearLayout(this@TelefonActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(TextView(this@TelefonActivity).apply { text = t("tvNastaveni"); textSize = 12f; setTextColor(TLUMENA) })
+                    addView(TextView(this@TelefonActivity).apply {
+                        text = Propojeni.Vysilac.cilJmeno
+                        textSize = 15f; typeface = tucne; setTextColor(Color.WHITE)
+                        maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                    })
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(TextView(this@TelefonActivity).apply { text = "›"; textSize = 24f; setTextColor(TLUMENA) })
+            })
+            addView(LgDevModeView(this@TelefonActivity) {
+                TvProfily.aktivniId?.let { TvProfily(this@TelefonActivity).najdi(it) }
+            })
         })
-        obal.addView(LgDevModeView(this) {
-            TvProfily.aktivniId?.let { TvProfily(this).najdi(it) }
-        })
+
+        // ---- nadpis + mini televize
+        obal.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(this@TelefonActivity).apply {
+                text = t("sekcePoloha"); textSize = 17f; typeface = tucne; setTextColor(Color.WHITE)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            if (!zelenaZamcena) addView(TextView(this@TelefonActivity).apply {
+                text = t("tvVychoziKratce"); textSize = 13f; setTextColor(TLUMENA)
+                setPadding(dp(10), dp(8), 0, dp(8))
+                setOnClickListener {
+                    rozvrh = floatArrayOf(0.5f, 0.93f, 0.62f, 1f)
+                    ulozAPosliRozvrh(); obnovUpravy()
+                }
+            })
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(18) })
         obal.addView(TextView(this).apply {
-            text = t("tvUpravit")
-            textSize = 14f
-            setTextColor(Color.parseColor("#AAAAAA"))
-            setPadding(0, 0, 0, dp(6))
+            text = t("sekcePolohaNap"); textSize = 13f; setTextColor(TLUMENA)
+            setPadding(0, dp(2), 0, dp(8))
         })
         val obrazovka = FrameLayout(this).apply {
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#1A1C26"))
+                setColor(vz.obrazovka)
                 cornerRadius = 10 * resources.displayMetrics.density
-                setStroke(dp(2), Color.parseColor("#555A78"))
+                setStroke(dp(2), vz.obrazovkaOkraj)
             }
         }
         val box = TextView(this).apply {
@@ -476,15 +575,18 @@ class TelefonActivity : Activity() {
         }
         obal.addView(obrazovka, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(150)))
 
-        fun posuvnik(popis: String, od: Int, doo: Int, hodnota: () -> Int, nastav: (Int) -> Unit, posli: () -> Unit = { ulozAPosliRozvrh() }) {
+        fun posuvnik(cil: LinearLayout, barva: Int, popis: String, od: Int, doo: Int, hodnota: () -> Int, nastav: (Int) -> Unit, posli: () -> Unit = { ulozAPosliRozvrh() }) {
             val radek = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
             val stitek = TextView(this).apply { textSize = 14f; setTextColor(Color.WHITE) }
             fun popisek() { stitek.text = "$popis ${hodnota()} %" }
             popisek()
-            radek.addView(stitek, LinearLayout.LayoutParams(dp(130), ViewGroup.LayoutParams.WRAP_CONTENT))
+            radek.addView(stitek, LinearLayout.LayoutParams(dp(150), ViewGroup.LayoutParams.WRAP_CONTENT))
             radek.addView(android.widget.SeekBar(this).apply {
+                thumbTintList = android.content.res.ColorStateList.valueOf(barva)
+                progressTintList = android.content.res.ColorStateList.valueOf(barva)
                 max = doo - od
                 progress = hodnota() - od
+                contentDescription = popis
                 setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(sb: android.widget.SeekBar, p: Int, odUzivatele: Boolean) {
                         if (!odUzivatele) return
@@ -496,204 +598,187 @@ class TelefonActivity : Activity() {
                     override fun onStartTrackingTouch(sb: android.widget.SeekBar) { ui.removeCallbacks(konecUprav) }
                     override fun onStopTrackingTouch(sb: android.widget.SeekBar) { posli(); ui.postDelayed(konecUprav, 1000) }
                 })
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            obal.addView(radek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+            }, LinearLayout.LayoutParams(0, dp(40), 1f))
+            cil.addView(radek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
         }
-        // šedá nápověda pod tlačítkem (mění se podle stavu)
-        fun sedaNapoveda(text: String) = obal.addView(TextView(this).apply {
+        // šedá nápověda (mění se podle stavu)
+        fun napoveda(cil: LinearLayout, text: String) = cil.addView(TextView(this).apply {
             this.text = text
             textSize = 13f
-            setTextColor(Color.parseColor("#AAAAAA"))
-            setPadding(dp(4), dp(6), 0, 0)
+            setTextColor(TLUMENA)
+            setPadding(0, dp(6), 0, dp(2))
         })
+        // řádek „popis ……… [vypínač]“
+        fun radekPrepinace(cil: LinearLayout, popis: String, barva: Int, zap: Boolean, akce: (Boolean) -> Unit) =
+            cil.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(this@TelefonActivity).apply { text = popis; textSize = 14f; setTextColor(Color.WHITE) },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(prepinac(barva, zap, popis, akce))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
 
-        // ---- poloha českých titulků (zelený box) + zámeček
-        val radekZeleny = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        radekZeleny.addView(TextView(this).apply {
-            text = t("zelenaPoloha")
-            textSize = 15f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setTextColor(Color.BLACK)
-            background = GradientDrawable().apply { cornerRadius = 999f; setColor(zelena) }
-            setPadding(dp(16), dp(10), dp(16), dp(10))
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        radekZeleny.addView(zamek(zelena, zelenaZamcena) { zelenaZamcena = !zelenaZamcena },
-            LinearLayout.LayoutParams(dp(46), dp(46)).apply { leftMargin = dp(10) })
-        obal.addView(radekZeleny, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
-        sedaNapoveda(if (zelenaZamcena) t("zelenaNapZamceno") else t("zelenaNap"))
-        if (!zelenaZamcena) {
-            posuvnik(t("tvSirka"), 20, 100, { (rozvrh[2] * 100).toInt() }, { rozvrh[2] = it / 100f })
-            posuvnik(t("tvPismo"), 50, 250, { (rozvrh[3] * 100).toInt() }, { rozvrh[3] = it / 100f })
+        /**
+         * Sbalitelná sekce: barevná tečka = rámeček v mini televizi, pod názvem krátký stav.
+         * Vpravo vypínač / zámek (fungují i sbalené), šipka rozbalí podrobnosti.
+         */
+        fun sekce(id: String, barva: Int, nazev: String, stav: String,
+                  vpravo: LinearLayout.() -> Unit, telo: LinearLayout.() -> Unit) {
+            val otevreno = id in rozbaleno
+            val karta = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = GradientDrawable().apply { setColor(KARTA); cornerRadius = dp(14).toFloat() }
+                setPadding(dp(14), 0, dp(10), 0)
+            }
+            karta.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = dp(58)
+                contentDescription = "$nazev, $stav"
+                setOnClickListener {
+                    rozbaleno = rozbaleno.apply { if (otevreno) remove(id) else add(id) }
+                    obnovUpravy()
+                }
+                addView(View(this@TelefonActivity).apply {
+                    background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(barva) }
+                }, LinearLayout.LayoutParams(dp(12), dp(12)).apply { rightMargin = dp(12) })
+                addView(LinearLayout(this@TelefonActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(TextView(this@TelefonActivity).apply { text = nazev; textSize = 16f; typeface = tucne; setTextColor(Color.WHITE) })
+                    addView(TextView(this@TelefonActivity).apply { text = stav; textSize = 12f; setTextColor(TLUMENA) })
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                vpravo()
+                addView(TextView(this@TelefonActivity).apply {
+                    text = if (otevreno) "▾" else "▸"
+                    textSize = 22f
+                    gravity = Gravity.CENTER
+                    setTextColor(TLUMENA)
+                }, LinearLayout.LayoutParams(dp(30), ViewGroup.LayoutParams.WRAP_CONTENT))
+            })
+            if (otevreno) karta.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(0, 0, dp(4), dp(12))
+                telo()
+            })
+            obal.addView(karta, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10) })
+        }
+        fun LinearLayout.zamekVpravo(barva: Int, zamceno: Boolean, prepni: () -> Unit) =
+            addView(zamek(barva, zamceno, prepni), LinearLayout.LayoutParams(dp(38), dp(38)).apply { leftMargin = dp(8) })
+
+        // ---- české titulky (zelený box)
+        sekce("zelena", zelena, t("sekceZelena"),
+            if (zelenaZamcena) "🔒 " + t("stavZamceno")
+            else "${t("tvSirka")} ${(rozvrh[2] * 100).toInt()} % · ${t("tvPismo")} ${(rozvrh[3] * 100).toInt()} %",
+            { zamekVpravo(zelena, zelenaZamcena) { zelenaZamcena = !zelenaZamcena } }) {
+            napoveda(this, if (zelenaZamcena) t("zelenaNapZamceno") else t("zelenaNap"))
+            if (!zelenaZamcena) {
+                posuvnik(this, zelena, t("tvSirka"), 20, 100, { (rozvrh[2] * 100).toInt() }, { rozvrh[2] = it / 100f })
+                posuvnik(this, zelena, t("tvPismo"), 50, 250, { (rozvrh[3] * 100).toInt() }, { rozvrh[3] = it / 100f })
+            }
         }
 
-        // ---- čtení titulků: automaticky / ručně (modrý rámeček) + zámeček vedle
-        val radekModry = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        radekModry.addView(TextView(this).apply {
-            text = if (OblastTitulku.rucne) t("titOblZap") else t("titOblVyp")
-            textSize = 15f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setTextColor(if (OblastTitulku.rucne) Color.BLACK else OblastTitulku.MODRA)
-            background = GradientDrawable().apply {
-                cornerRadius = 999f
-                if (OblastTitulku.rucne) setColor(OblastTitulku.MODRA) else { setColor(Color.TRANSPARENT); setStroke(dp(2), OblastTitulku.MODRA) }
-            }
-            setPadding(dp(16), dp(10), dp(16), dp(10))
-            setOnClickListener {
-                OblastTitulku.rucne = !OblastTitulku.rucne
+        // ---- čtení titulků hry: automaticky / ručně (modrý rámeček)
+        val modra = OblastTitulku.MODRA
+        sekce("modra", modra, t("sekceModra"),
+            (if (OblastTitulku.rucne) t("stavRucne") else t("stavAuto")) +
+                if (OblastTitulku.rucne && OblastTitulku.zamceno) " · 🔒 " + t("stavZamceno") else "",
+            {
+                if (OblastTitulku.rucne) zamekVpravo(modra, OblastTitulku.zamceno) {
+                    OblastTitulku.zamceno = !OblastTitulku.zamceno
+                    OblastTitulku.uloz(this@TelefonActivity)
+                }
+            }) {
+            addView(segmenty(listOf(t("titOblAuto"), t("titOblRucne")), if (OblastTitulku.rucne) 1 else 0, modra) { i ->
+                OblastTitulku.rucne = i == 1
                 OblastTitulku.uloz(this@TelefonActivity)
                 if (OblastTitulku.rucne) { ulozAPosliOblastTitulku(); ui.removeCallbacks(konecUprav); ui.postDelayed(konecUprav, 3000) }
                 else Propojeni.Vysilac.oblastTitulku(OblastTitulku.oblast, ukazat = false)
                 obnovUpravy()
-            }
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        if (OblastTitulku.rucne) {
-            // zámeček: zamčeno = svítí modře, rámeček nejde posunout
-            radekModry.addView(zamek(OblastTitulku.MODRA, OblastTitulku.zamceno) {
-                OblastTitulku.zamceno = !OblastTitulku.zamceno
-                OblastTitulku.uloz(this@TelefonActivity)
-            }, LinearLayout.LayoutParams(dp(46), dp(46)).apply { leftMargin = dp(10) })
-        }
-        obal.addView(radekModry, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(14) })
-        sedaNapoveda(when {
-            !OblastTitulku.rucne -> t("titOblNapAuto")
-            OblastTitulku.zamceno -> t("titOblNapZamceno")
-            else -> t("titOblNavod")
-        })
-        if (OblastTitulku.rucne && !OblastTitulku.zamceno) {
-            fun zmenModry(sirka: Float?, vyska: Float?) {
-                val o = OblastTitulku.oblast.copyOf()
-                if (sirka != null) {
-                    val cx = (o[0] + o[2]) / 2
-                    o[0] = (cx - sirka / 2).coerceIn(0f, 1f - sirka); o[2] = o[0] + sirka
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
+            napoveda(this, when {
+                !OblastTitulku.rucne -> t("titOblNapAuto")
+                OblastTitulku.zamceno -> t("titOblNapZamceno")
+                else -> t("titOblNavod")
+            })
+            if (OblastTitulku.rucne && !OblastTitulku.zamceno) {
+                fun zmenModry(sirka: Float?, vyska: Float?) {
+                    val o = OblastTitulku.oblast.copyOf()
+                    if (sirka != null) {
+                        val cx = (o[0] + o[2]) / 2
+                        o[0] = (cx - sirka / 2).coerceIn(0f, 1f - sirka); o[2] = o[0] + sirka
+                    }
+                    if (vyska != null) {
+                        val cy = (o[1] + o[3]) / 2
+                        o[1] = (cy - vyska / 2).coerceIn(0f, 1f - vyska); o[3] = o[1] + vyska
+                    }
+                    OblastTitulku.oblast = o
                 }
-                if (vyska != null) {
-                    val cy = (o[1] + o[3]) / 2
-                    o[1] = (cy - vyska / 2).coerceIn(0f, 1f - vyska); o[3] = o[1] + vyska
-                }
-                OblastTitulku.oblast = o
+                posuvnik(this, modra, t("titOblSirka"), 20, 100, { ((OblastTitulku.oblast[2] - OblastTitulku.oblast[0]) * 100).toInt() },
+                    { zmenModry(it / 100f, null) }, { ulozAPosliOblastTitulku() })
+                posuvnik(this, modra, t("titOblVyska"), 5, 60, { ((OblastTitulku.oblast[3] - OblastTitulku.oblast[1]) * 100).toInt() },
+                    { zmenModry(null, it / 100f) }, { ulozAPosliOblastTitulku() })
             }
-            posuvnik(t("titOblSirka"), 20, 100, { ((OblastTitulku.oblast[2] - OblastTitulku.oblast[0]) * 100).toInt() },
-                { zmenModry(it / 100f, null) }, { ulozAPosliOblastTitulku() })
-            posuvnik(t("titOblVyska"), 5, 60, { ((OblastTitulku.oblast[3] - OblastTitulku.oblast[1]) * 100).toInt() },
-                { zmenModry(null, it / 100f) }, { ulozAPosliOblastTitulku() })
         }
 
-        // ---- volby odpovědí: vypínač + zámeček + velikost žlutého rámečku
-        val radekZluty = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        radekZluty.addView(TextView(this).apply {
-            text = if (Volby.zapnuto) t("volbyZap") else t("volbyVyp")
-            textSize = 15f
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setTextColor(if (Volby.zapnuto) Color.BLACK else Volby.ZLUTA)
-            background = GradientDrawable().apply {
-                cornerRadius = 999f
-                if (Volby.zapnuto) setColor(Volby.ZLUTA) else { setColor(Color.TRANSPARENT); setStroke(dp(2), Volby.ZLUTA) }
-            }
-            setPadding(dp(16), dp(10), dp(16), dp(10))
-            setOnClickListener {
-                Volby.zapnuto = !Volby.zapnuto
+        // ---- volby odpovědí (žlutý rámeček): vypínač + zámek, uvnitř Odpovědi / Text a velikost
+        val zluta = Volby.ZLUTA
+        sekce("zluta", zluta, t("sekceZluta"),
+            when {
+                !Volby.zapnuto -> t("stavVyp")
+                Volby.rezimText -> t("stavText")
+                Volby.gta -> t("rezimGta")
+                else -> t("segVolby")
+            } + if (Volby.zapnuto && Volby.zamceno) " · 🔒 " + t("stavZamceno") else "",
+            {
+                if (Volby.zapnuto) zamekVpravo(zluta, Volby.zamceno) {
+                    Volby.zamceno = !Volby.zamceno
+                    Volby.uloz(this@TelefonActivity)
+                }
+                addView(prepinac(zluta, Volby.zapnuto, t("volbyPrepinac")) { zap ->
+                    nastavVolbyZapnuto(zap)
+                    obnovUpravy()
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(6) })
+            }) {
+            if (!Volby.zapnuto) { napoveda(this, t("volbyNapVyp")); return@sekce }
+            // režim žlutého rámečku: Odpovědi (seznam voleb) / Text (dopis, SMS, popis úkolu jako celek)
+            addView(segmenty(listOf(t("segVolby"), t("segText")), if (Volby.rezimText) 1 else 0, zluta) { i ->
+                Volby.rezimText = i == 1
                 Volby.uloz(this@TelefonActivity)
-                Propojeni.Vysilac.trvaleOblast = Volby.zapnuto && Volby.ukazatNaTv
-                if (Volby.zapnuto) { ulozAPosliVolby(); ui.removeCallbacks(konecUprav); ui.postDelayed(konecUprav, 3000) }
-                else {
-                    Propojeni.Vysilac.upravujiOblast(Volby.oblast, ukazat = false)
-                    Propojeni.Vysilac.nastavVolby(emptyList(), -1)
-                }
+                Propojeni.Vysilac.nastavVolby(emptyList(), -1)
                 obnovUpravy()
-            }
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        if (Volby.zapnuto) radekZluty.addView(zamek(Volby.ZLUTA, Volby.zamceno) {
-            Volby.zamceno = !Volby.zamceno
-            Volby.uloz(this@TelefonActivity)
-        }, LinearLayout.LayoutParams(dp(46), dp(46)).apply { leftMargin = dp(10) })
-        obal.addView(radekZluty, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(14) })
-        sedaNapoveda(when {
-            !Volby.zapnuto -> t("volbyNapVyp")
-            Volby.zamceno -> t("volbyNapZamceno")
-            else -> t("volbyNavod")
-        })
-        // režim žlutého rámečku: Volby (seznam odpovědí) / Text (dopis, SMS, popis úkolu jako celek)
-        if (Volby.zapnuto) {
-            val radekRezim = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                background = GradientDrawable().apply { cornerRadius = 999f; setColor(Color.parseColor("#333338")) }
-                setPadding(dp(2), dp(2), dp(2), dp(2))
-            }
-            fun rezim(popis: String, text: Boolean) = TextView(this).apply {
-                this.text = popis
-                textSize = 14f
-                typeface = Typeface.DEFAULT_BOLD
-                gravity = Gravity.CENTER
-                val zvoleno = Volby.rezimText == text
-                setTextColor(if (zvoleno) Color.BLACK else Color.WHITE)
-                alpha = if (zvoleno) 1f else 0.6f
-                background = GradientDrawable().apply { cornerRadius = 999f; setColor(if (zvoleno) Volby.ZLUTA else Color.TRANSPARENT) }
-                setPadding(dp(10), dp(8), dp(10), dp(8))
-                setOnClickListener {
-                    if (Volby.rezimText != text) {
-                        Volby.rezimText = text
-                        Volby.uloz(this@TelefonActivity)
-                        Propojeni.Vysilac.nastavVolby(emptyList(), -1)
-                        obnovUpravy()
-                    }
-                }
-            }
-            radekRezim.addView(rezim(t("rezimVolby"), false), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            radekRezim.addView(rezim(t("rezimText"), true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            obal.addView(radekRezim, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
-            sedaNapoveda(if (Volby.rezimText) t("rezimTextNap") else t("rezimVolbyNap"))
-        }
-        if (Volby.zapnuto && !Volby.zamceno) {
-            // ukazovat rámeček na televizi pořád (jen když chci vidět, kde je), jinak jen při posouvání
-            obal.addView(TextView(this).apply {
-                text = if (Volby.ukazatNaTv) t("volbyUkazatZap") else t("volbyUkazatVyp")
-                textSize = 14f
-                gravity = Gravity.CENTER
-                setTextColor(if (Volby.ukazatNaTv) Color.BLACK else Color.WHITE)
-                background = GradientDrawable().apply {
-                    cornerRadius = 999f
-                    if (Volby.ukazatNaTv) setColor(Volby.ZLUTA) else { setColor(Color.TRANSPARENT); setStroke(dp(1), Color.parseColor("#888888")) }
-                }
-                setPadding(dp(14), dp(8), dp(14), dp(8))
-                setOnClickListener {
-                    Volby.ukazatNaTv = !Volby.ukazatNaTv
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
+            napoveda(this, when {
+                Volby.rezimText -> t("rezimTextNap")
+                Volby.gta -> t("volbyGtaNap")
+                else -> t("rezimVolbyNap")
+            })
+            napoveda(this, if (Volby.zamceno) t("volbyNapZamceno") else t("volbyNavod"))
+            if (!Volby.zamceno) {
+                // ukazovat rámeček na televizi pořád (jen když chci vidět, kde je), jinak jen při posouvání
+                radekPrepinace(this, t("volbyNaTv"), zluta, Volby.ukazatNaTv) { zap ->
+                    Volby.ukazatNaTv = zap
                     Volby.uloz(this@TelefonActivity)
                     Propojeni.Vysilac.nastavTrvaleOblast(Volby.ukazatNaTv)
-                    obnovUpravy()
                 }
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
-            // šířka / výška rámečku – mění se kolem středu
-            fun zmenRamecek(sirka: Float?, vyska: Float?) {
-                val o = Volby.oblast.copyOf()
-                if (sirka != null) {
-                    val cx = (o[0] + o[2]) / 2
-                    o[0] = (cx - sirka / 2).coerceIn(0f, 1f - sirka); o[2] = o[0] + sirka
+                // šířka / výška rámečku – mění se kolem středu
+                fun zmenRamecek(sirka: Float?, vyska: Float?) {
+                    val o = Volby.oblast.copyOf()
+                    if (sirka != null) {
+                        val cx = (o[0] + o[2]) / 2
+                        o[0] = (cx - sirka / 2).coerceIn(0f, 1f - sirka); o[2] = o[0] + sirka
+                    }
+                    if (vyska != null) {
+                        val cy = (o[1] + o[3]) / 2
+                        o[1] = (cy - vyska / 2).coerceIn(0f, 1f - vyska); o[3] = o[1] + vyska
+                    }
+                    Volby.oblast = o
                 }
-                if (vyska != null) {
-                    val cy = (o[1] + o[3]) / 2
-                    o[1] = (cy - vyska / 2).coerceIn(0f, 1f - vyska); o[3] = o[1] + vyska
-                }
-                Volby.oblast = o
+                posuvnik(this, zluta, t("volbySirka"), 10, 100, { ((Volby.oblast[2] - Volby.oblast[0]) * 100).toInt() },
+                    { zmenRamecek(it / 100f, null) }, { ulozAPosliVolby() })
+                posuvnik(this, zluta, t("volbyVyska"), 10, 100, { ((Volby.oblast[3] - Volby.oblast[1]) * 100).toInt() },
+                    { zmenRamecek(null, it / 100f) }, { ulozAPosliVolby() })
             }
-            posuvnik(t("volbySirka"), 10, 100, { ((Volby.oblast[2] - Volby.oblast[0]) * 100).toInt() },
-                { zmenRamecek(it / 100f, null) }, { ulozAPosliVolby() })
-            posuvnik(t("volbyVyska"), 10, 100, { ((Volby.oblast[3] - Volby.oblast[1]) * 100).toInt() },
-                { zmenRamecek(null, it / 100f) }, { ulozAPosliVolby() })
         }
-
-        obal.addView(TextView(this).apply {
-            text = t("tvVychozi")
-            textSize = 13f
-            setTextColor(Color.parseColor("#888888"))
-            setPadding(0, dp(8), 0, 0)
-            setOnClickListener {
-                rozvrh = floatArrayOf(0.5f, 0.93f, 0.62f, 1f)
-                ulozAPosliRozvrh(); obnovUpravy()
-            }
-        })
         return obal
     }
 
@@ -724,6 +809,26 @@ class TelefonActivity : Activity() {
         rodic.removeView(upravy)
         upravy = postavUpravy().apply { visibility = viditelne }
         rodic.addView(upravy, i, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        obnovRezim()
+    }
+
+    /** Překreslí přepínač Standardní | Příběhový | GTA VI (volby GTA patří k profilu televize → po připojení TV znovu). */
+    private var obnovRezim: () -> Unit = {}
+
+    /** Klepnutí na Standardní / Příběhový / GTA VI. GTA VI zapne volby odpovědí v GTA stylu. */
+    private fun zvolRezim(rezim: RezimTitulku) {
+        val v = rezim.volby()
+        nast.pribehovy = v.pribehovy
+        val zapnoutVolby = v.volbyZapnout && !Volby.zapnuto
+        val zmenaVoleb = Volby.gta != v.gta || zapnoutVolby || (v.gta && Volby.rezimText)
+        if (!zmenaVoleb) return
+        Volby.gta = v.gta
+        // GTA = volby z rozhovorů, ne text dopisu
+        if (v.gta) Volby.rezimText = false
+        Volby.uloz(this)
+        if (zapnoutVolby) nastavVolbyZapnuto(true)
+        Propojeni.Vysilac.nastavVolby(emptyList(), -1)
+        obnovUpravy()
     }
 
     private fun postav() {
@@ -736,20 +841,22 @@ class TelefonActivity : Activity() {
         }
         val zastavit = TextView(this).apply {
             text = t("zastavit")
-            textSize = 14f
+            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
             setTextColor(Color.WHITE)
             background = zaobleni(Color.parseColor("#E5091A"))
-            setPadding(dp(14), dp(7), dp(14), dp(7))
+            setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener { finish() }
         }
         // kde ukazovat titulky: dvě volby vedle sebe (jedním klepnutím)
         fun segment(popis: String, akce: () -> Unit) = TextView(this).apply {
             text = popis
-            textSize = 14f
+            textSize = 13f
             typeface = Typeface.DEFAULT_BOLD
+            maxLines = 1
             setTextColor(Color.WHITE)
-            setPadding(dp(12), dp(7), dp(12), dp(7))
+            setPadding(dp(10), dp(8), dp(10), dp(8))
             setOnClickListener { akce() }
         }
         segTv = segment(t("segTv")) { prepniNaTv() }
@@ -767,16 +874,16 @@ class TelefonActivity : Activity() {
         val lista = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(10), dp(14), dp(4))
+            setPadding(dp(12), dp(10), dp(12), dp(4))
             addView(ImageView(this@TelefonActivity).apply {
                 setImageResource(R.drawable.logo)
                 adjustViewBounds = true
                 // podržet logo → záznam (pro hledání chyb)
                 setOnLongClickListener { Zaznam.ukaz(this@TelefonActivity); true }
-            }, LinearLayout.LayoutParams(dp(84), ViewGroup.LayoutParams.WRAP_CONTENT))
-            // mezera – tlačítka doprava
+            }, LinearLayout.LayoutParams(dp(60), ViewGroup.LayoutParams.WRAP_CONTENT))
+            // mezera – tlačítka doprava (Zastavit se musí vejít i na užší telefon)
             addView(View(this@TelefonActivity), LinearLayout.LayoutParams(0, 1, 1f))
-            addView(tvTlacitko, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(10) })
+            addView(tvTlacitko, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) })
             addView(zastavit)
         }
 
@@ -826,42 +933,37 @@ class TelefonActivity : Activity() {
         val horni = LinearLayout(this).apply {
             horniPanel = this
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#111114"))
             addView(lista, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             val rezimy = LinearLayout(this@TelefonActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(14), dp(8), dp(14), dp(8))
             }
-            val tlacitka = LinearLayout(this@TelefonActivity)
-            val standard = android.widget.Button(this@TelefonActivity).apply { text = "Standardní"; isAllCaps = false }
-            val pribehovy = android.widget.Button(this@TelefonActivity).apply { text = "Příběhový"; isAllCaps = false }
+            // Standardní | Příběhový | GTA VI – pod tím jedna věta, co vybraný režim dělá
+            val prepinacRezimu = FrameLayout(this@TelefonActivity)
+            val popisRezimu = TextView(this@TelefonActivity).apply {
+                textSize = 12.5f; setTextColor(TLUMENA); setPadding(dp(4), dp(6), dp(4), 0)
+            }
             val casObal = LinearLayout(this@TelefonActivity).apply { orientation = LinearLayout.VERTICAL }
             val casPopis = TextView(this@TelefonActivity).apply { textSize = 14f; setTextColor(Color.WHITE) }
-            fun obnovRezim() {
-                for ((button, vybrano) in listOf(standard to !nast.pribehovy, pribehovy to nast.pribehovy)) {
-                    button.isSelected = vybrano
-                    button.contentDescription = "${button.text} režim" + if (vybrano) ", vybráno" else ""
-                    button.typeface = Typeface.DEFAULT_BOLD
-                    button.minHeight = dp(48)
-                    button.setTextColor(if (vybrano) Color.BLACK else Color.WHITE)
-                    button.background = zaobleni(Color.parseColor(if (vybrano) "#3CFF6E" else "#303038")).apply {
-                        setStroke(dp(2), Color.parseColor(if (vybrano) "#3CFF6E" else "#737380"))
-                    }
-                    button.elevation = dp(2).toFloat()
-                }
-                casObal.visibility = if (nast.pribehovy) View.VISIBLE else View.GONE
+            fun obnovCas() { casPopis.text = t("rezimDelka").replace("{p}", nast.casPribehuProcenta.toString()) }
+            obnovRezim = {
+                val rezim = RezimTitulku.z(nast.pribehovy, Volby.gta)
+                prepinacRezimu.removeAllViews()
+                prepinacRezimu.addView(segmenty(RezimTitulku.values().map { t(it.klic) }, rezim.ordinal, vz.akcent) { i ->
+                    zvolRezim(RezimTitulku.values()[i])
+                    obnovRezim()
+                })
+                popisRezimu.text = t(rezim.napovedaKlic)
+                casObal.visibility = if (rezim == RezimTitulku.PRIBEH) View.VISIBLE else View.GONE
+                popisRezimu.setTextColor(TLUMENA)
+                obarviObrazovku()
             }
-            standard.setOnClickListener { nast.pribehovy = false; obnovRezim() }
-            pribehovy.setOnClickListener { nast.pribehovy = true; obnovRezim() }
-            tlacitka.addView(standard, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(8) })
-            tlacitka.addView(pribehovy, LinearLayout.LayoutParams(0, dp(48), 1f))
-            fun obnovCas() { casPopis.text = "Délka zobrazení: ${nast.casPribehuProcenta} %" }
             obnovCas()
-            casObal.addView(casPopis)
+            casObal.addView(casPopis, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
             casObal.addView(android.widget.SeekBar(this@TelefonActivity).apply {
                 max = (CasovaniPribehu.MAX_PROCENT - CasovaniPribehu.MIN_PROCENT) / 5
                 progress = (nast.casPribehuProcenta - CasovaniPribehu.MIN_PROCENT) / 5
-                contentDescription = "Délka zobrazení příběhových titulků v procentech"
+                contentDescription = t("rezimDelka").replace("{p}", "").trim()
                 setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(sb: android.widget.SeekBar, p: Int, odUzivatele: Boolean) {
                         if (odUzivatele) { nast.casPribehuProcenta = CasovaniPribehu.MIN_PROCENT + p * 5; obnovCas() }
@@ -871,14 +973,18 @@ class TelefonActivity : Activity() {
                 })
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
             casObal.addView(TextView(this@TelefonActivity).apply {
-                text = "100 % = výchozí čas · méně % = kratší zobrazení. Platí od další stránky."
-                textSize = 12f; setTextColor(Color.parseColor("#B6B6C2"))
+                text = t("rezimDelkaNap")
+                textSize = 12f; setTextColor(TLUMENA)
             })
-            rezimy.addView(tlacitka)
+            rezimy.addView(prepinacRezimu)
+            rezimy.addView(popisRezimu)
             rezimy.addView(casObal)
             obnovRezim()
             addView(rezimy, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             addView(stavRadek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            // GTA VI: tenký pruh západu slunce pod panelem
+            pruh = View(this@TelefonActivity)
+            addView(pruh, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3)))
         }
         tip = TextView(this).apply {
             text = t("telefonTip")
@@ -888,9 +994,8 @@ class TelefonActivity : Activity() {
             setPadding(0, dp(6), 0, dp(10))
         }
 
-        val koren = LinearLayout(this).apply {
+        koren = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.BLACK)
             addView(horni, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             obalTitulku = FrameLayout(this@TelefonActivity).apply {
                 addView(titulek, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -925,6 +1030,25 @@ class TelefonActivity : Activity() {
             addView(tip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         setContentView(koren)
+        obarviObrazovku()
+    }
+
+    private lateinit var koren: LinearLayout
+    private lateinit var pruh: View
+
+    /** Pozadí, horní panel a přepínač TV/Telefon podle vzhledu (GTA VI / základní). */
+    private fun obarviObrazovku() {
+        if (!::koren.isInitialized) return
+        val v = vz
+        koren.setBackgroundColor(v.pozadi)
+        horniPanel.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, v.panel)
+        tvTlacitko.background = zaobleni(v.segmentPozadi)
+        pruh.visibility = if (v.pruh != null) View.VISIBLE else View.GONE
+        v.pruh?.let { pruh.background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, it) }
+        stav.setTextColor(if (v.uzkePismo) v.tlumena else Color.parseColor("#BBBBBB"))
+        // stav přenosu do TV se přebarvuje jen při změně textu → vynutit při příští obnově
+        if (Propojeni.Vysilac.cilIp != null) titulek.text = ""
+        obnovTvTlacitko()
     }
 
     // ---------------------------------------------------------------- na šířku (jen titulky v telefonu)
@@ -1050,10 +1174,11 @@ class TelefonActivity : Activity() {
             }
             if (doTv) {
                 val prenos = Propojeni.Vysilac.stavPrenosu
-                val s = Propojeni.Vysilac.cilJmeno + "\n" + Texty.prenos(nast.jazykNeboCs, prenos)
+                // název televize je v kartě níž; tady jen stav přenosu (výrazně jen při chybě)
+                val s = Texty.prenos(nast.jazykNeboCs, prenos)
                 if (titulek.text.toString() != s) {
                     titulek.text = s
-                    titulek.setTextColor(Color.parseColor(if (prenos.chyba != null) "#FF7272" else "#FFC24B"))
+                    titulek.setTextColor(if (prenos.chyba != null) Color.parseColor("#FF7272") else TLUMENA)
                 }
                 napoveda.visibility = View.GONE
                 ui.postDelayed(this, 300)

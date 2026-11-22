@@ -170,7 +170,7 @@ class RemotePlayService : Service() {
                 if (ip != null) {
                     val obsah = pribehAktualni
                     val zprava = if (obsah == null) PribehProtokol.dotaz("$pribehSession.${pribeh.generace}.0.0")
-                    else runCatching { PribehProtokol.titulek(pribehId(obsah.token), obsah.text, pauza,
+                    else runCatching { PribehProtokol.titulek(pribehId(obsah.token), Propojeni.sVzhledem(obsah.text), pauza,
                         Propojeni.Vysilac.rozvrhPribehu(), pribeh.barvy(obsah.token), casProcenta) }.getOrElse {
                         pribeh.chybaVystupu(obsah.token); pribehAktualni = null
                         PribehProtokol.dotaz("$pribehSession.${pribeh.generace}.0.0")
@@ -1740,10 +1740,53 @@ class RemotePlayService : Service() {
     private var volbyDalsi = 0L
     private var volbyOtisk = 0L
     private var volbyCtenoKdy = 0L
+
+    /**
+     * Jen debug verze: ukládá výřez žlutého rámečku (PNG) a přečtené řádky s polohou (TXT)
+     * pokaždé, když se přečte jiný seznam voleb – podklady pro rozpoznání ikon tlačítek (△ ✕ ○ □).
+     * Posledních [SNIMKY_VOLEB_MAX] souborů ve files/volby-snimky, nikam se neodesílají.
+     */
+    private val ukladatSnimkyVoleb by lazy { applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 }
+    private val ukladaniSnimku = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val ikonyVlakno = java.util.concurrent.Executors.newSingleThreadExecutor()
+    /** Hlavní vlákno: poslední poznaná ikona tlačítka u každé volby (ať nebliká, když se jednou nepozná). */
+    private val ikonyVoleb = HashMap<String, Ikona>()
+    private var snimekVolebText = ""
+    private var snimekVolebKdy = 0L
+
+    private fun ulozSnimekVoleb(barvy: IntArray, w: Int, h: Int, radky: List<String>, boxy: List<android.graphics.Rect>) {
+        if (!ukladatSnimkyVoleb || radky.size < 2) return
+        val text = radky.joinToString("|")
+        val ted = System.currentTimeMillis()
+        if (text == snimekVolebText || ted - snimekVolebKdy < 1500) return
+        snimekVolebText = text
+        snimekVolebKdy = ted
+        val popis = buildString {
+            append("w=$w h=$h oblast=${Volby.oblast.joinToString(",")}\n")
+            radky.forEachIndexed { i, r -> val b = boxy.getOrNull(i); append("${b?.left},${b?.top},${b?.right},${b?.bottom}\t$r\n") }
+        }
+        runCatching { ukladaniSnimku.execute {
+            runCatching {
+                val dir = File(filesDir, "volby-snimky").apply { mkdirs() }
+                val jmeno = java.text.SimpleDateFormat("HHmmss-SSS", java.util.Locale.US).format(java.util.Date(ted))
+                val bmp = Bitmap.createBitmap(barvy, w, h, Bitmap.Config.ARGB_8888)
+                File(dir, "$jmeno.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                bmp.recycle()
+                File(dir, "$jmeno.txt").writeText(popis)
+                dir.listFiles { f -> f.name.endsWith(".png") }?.sortedBy { it.name }?.dropLast(SNIMKY_VOLEB_MAX)?.forEach {
+                    it.delete(); File(dir, it.name.removeSuffix(".png") + ".txt").delete()
+                }
+            }
+        } }
+    }
     /** Hlavní vlákno: anglické volby → česky (ať se při přejíždění nepřekládá pořád dokola). */
     private val prekladyVoleb = HashMap<String, String>()
+    /** Hlavní vlákno: volby, které se právě překládají – ať se při každém dalším přečtení neposílají znovu. */
+    private val volbyVPrekladu = HashSet<String>()
     private var volbyPosledni: List<String> = emptyList()
     private var volbyVybrana = -1
+    /** GTA VI: jméno NPC (spodní řádek voleb) – ukáže se bez strojového překladu. */
+    private var volbyJmeno: String? = null
     private var volbyPrazdneOd = 0L
 
     /** Volá se na vlákně GL u každého snímku, když je rámeček voleb zapnutý. */
@@ -1804,10 +1847,16 @@ class RemotePlayService : Service() {
             volbyCtu = false
             val boxy = radky.map { val r = it.second; android.graphics.Rect(r.left / 2, r.top / 2, r.right / 2, r.bottom / 2) }
             val vybrana = runCatching { zvyraznena(boxy, barvy, w, h) }.getOrDefault(-1)
+            if (!rezimText) ui.post { ulozSnimekVoleb(barvy, w, h, radky.map { it.first }, boxy) }
             ui.post {
                 if (!platnostOcrVoleb.plati(token) || !bezi || !Volby.zapnuto ||
                     Volby.revize != revize || relace != relaceCteni.get()) return@post
-                if (rezimText) zpracujText(radky.map { it.first }, otiskTextu) else zpracujVolby(radky.map { it.first }, vybrana)
+                if (rezimText) zpracujText(radky.map { it.first }, otiskTextu)
+                else {
+                    // text hned; ikony tlačítek (△ ✕ ○ □ L2) dorazí zvlášť a seznam se pak pošle znovu
+                    zpracujVolby(radky.map { it.first }, vybrana)
+                    if (Volby.gta) rozpoznejIkony(radky.map { it.first }, boxy, barvy, w, h)
+                }
             }
         }, { if (platnostOcrVoleb.plati(token)) volbyCtu = false })
     }
@@ -1884,22 +1933,63 @@ class RemotePlayService : Service() {
         }, { e -> zapis("[text: chyba překladu $e]") })
     }
 
-    private fun zpracujVolby(surove: List<String>, vybrana: Int) {
-        val revize = Volby.revize
+    /**
+     * Očistit přečtené řádky: ikony tlačítek na začátku i na konci ("[F]", "▶", "TAUNT O", "LOCAL("),
+     * šum s méně než 2 písmeny → null; překlep čtečky u už známé volby ("CREET") → známá volba ("GREET").
+     */
+    private fun upravVolby(surove: List<String>): List<String?> {
+        val zname = volbyPosledni + prekladyVoleb.keys
+        return surove.map { r ->
+            val v = CisteniVoleb.ocisti(r)
+            if (v.count { it.isLetter() } >= 2) CisteniVoleb.stabilizuj(v, zname) else null
+        }
+    }
+
+    /**
+     * GTA VI: ikony tlačítek se rozpoznávají vedle, text se kvůli nim nezdržuje.
+     * Vždy jen jedno rozpoznávání naráz (další snímky se přeskočí) a jen když u některé volby ikona chybí.
+     */
+    private val ikonyBezi = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    private fun rozpoznejIkony(surove: List<String>, boxy: List<android.graphics.Rect>, barvy: IntArray, w: Int, h: Int) {
+        val upravene = upravVolby(surove)
+        if (upravene.all { it == null || it in ikonyVoleb }) return
+        if (!ikonyBezi.compareAndSet(false, true)) return
         val relace = relaceCteni.get()
-        // očistit: ikony a znaky na začátku ("[F]", "▶", "•"), šum s méně než 2 písmeny
-        val volby = surove.map { it.trim().trimStart { ch -> !ch.isLetterOrDigit() && ch != '"' && ch != '„' }.trim() }
-            .filter { v -> v.count { it.isLetter() } >= 2 }
-            .take(8)
-        // vybraný index přepočítat po vyřazení šumu
-        val vyb = if (vybrana in surove.indices) {
-            val puvodni = surove[vybrana].trim().trimStart { ch -> !ch.isLetterOrDigit() && ch != '"' && ch != '„' }.trim()
-            volby.indexOf(puvodni)
-        } else -1
+        val ramecky = boxy.map { intArrayOf(it.left, it.top, it.right, it.bottom) }
+        val zacatek = System.currentTimeMillis()
+        val spusteno = runCatching { ikonyVlakno.execute {
+            val ikony = try { runCatching { IkonyVoleb.ikony(barvy, w, h, ramecky) }.getOrDefault(emptyList()) }
+                finally { ikonyBezi.set(false) }
+            ui.post {
+                if (!bezi || relace != relaceCteni.get() || !Volby.gta) return@post
+                var nove = false
+                upravVolby(surove).forEachIndexed { i, v ->
+                    val ik = ikony.getOrNull(i)
+                    if (v != null && ik != null && ikonyVoleb[v] != ik) { ikonyVoleb[v] = ik; nove = true }
+                }
+                if (ikonyVoleb.size > 300) ikonyVoleb.clear()
+                if (nove) {
+                    zapis("[ikony: ${ikony.joinToString(" ") { it?.znak ?: "?" }} za ${System.currentTimeMillis() - zacatek} ms]")
+                    posliVolby()
+                }
+            }
+        } }.isSuccess
+        if (!spusteno) ikonyBezi.set(false)
+    }
+
+    private fun zpracujVolby(surove: List<String>, vybrana: Int) {
+        val relace = relaceCteni.get()
+        val upravene = upravVolby(surove)
+        val volby = upravene.filterNotNull().take(8)
+        val gta = Volby.gta
+        // vybraný index přepočítat po vyřazení šumu; GTA VI nic nezvýrazňuje (volí se tlačítkem)
+        val vyb = if (gta) -1 else upravene.getOrNull(vybrana)?.let { volby.indexOf(it) } ?: -1
         val ted = System.currentTimeMillis()
         // volby ve hře mají vždy jednu zvýrazněnou (vybranou) – když žádná zvýrazněná není, je to jiný
-        // text (loga na načítací obrazovce, nápisy ve scéně) → neukazovat ("technologie od Amazonu")
-        val zvyraznene = vyb >= 0 || (volby == volbyPosledni && volbyVybrana >= 0)
+        // text (loga na načítací obrazovce, nápisy ve scéně) → neukazovat ("technologie od Amazonu").
+        // GTA VI: zvýraznění není → stačí aspoň jedna volba + řádek se jménem NPC
+        val zvyraznene = if (gta) volby.size >= 2 else vyb >= 0 || (volby == volbyPosledni && volbyVybrana >= 0)
         if (volby.isEmpty() || !zvyraznene) {
             if (volbyPosledni.isNotEmpty()) {
                 if (volbyPrazdneOd == 0L) volbyPrazdneOd = ted
@@ -1914,33 +2004,75 @@ class RemotePlayService : Service() {
         }
         volbyPrazdneOd = 0L
         // vybraná nepoznaná → nechat minulou (když jsou volby stejné)
-        volbyVybrana = if (vyb >= 0) vyb else if (volby == volbyPosledni) volbyVybrana else -1
+        volbyVybrana = if (gta) -1 else if (vyb >= 0) vyb else if (volby == volbyPosledni) volbyVybrana else -1
+        // GTA VI: spodní řádek je jméno NPC → nepřekládat strojově ("Rich" ≠ "Bohatý")
+        volbyJmeno = if (gta) volby.last() else null
         val novy = volby != volbyPosledni
         volbyPosledni = volby
         if (prekladyVoleb.size > 300) prekladyVoleb.clear()
-        val chybi = volby.filter { it !in prekladyVoleb }
-        fun posli() {
-            if (!bezi || relace != relaceCteni.get() || !Volby.zapnuto || Volby.rezimText ||
-                Volby.revize != revize || volbyPosledni != volby) return
-            Propojeni.Vysilac.nastavVolby(volby.map { prekladyVoleb[it] ?: it }, volbyVybrana)
-        }
-        if (chybi.isEmpty()) { posli(); return }
+        // krátké volby z interakcí s NPC mají pevný překlad (bez dotazu na internet)
+        val jazyk = nast.jazykNeboCs
+        for (v in volby) if (v !in prekladyVoleb) CisteniVoleb.zeSlovniku(v, jazyk)?.let { prekladyVoleb[v] = it }
+        // co se už překládá (z minulého přečtení), znovu neposílat – jen počkat na výsledek
+        val chybi = volby.filter { it !in prekladyVoleb && it !in volbyVPrekladu && it != volbyJmeno }
+        if (chybi.isEmpty()) { posliVolby(); return }
         if (novy) zapis("[volby: ${volby.joinToString(" | ")}]")
+        volbyVPrekladu += chybi
         prekladac.nastavJazyk(nast.jazykNeboCs)
-        var zbyva = chybi.size
-        for (v in chybi) {
-            prekladac.preloz(v, { cesky ->
-                ui.post {
-                    // jména postav nepřekládat ("Dutch" ≠ "holandština") – stejně jako u titulků
-                    var opraveno = opravJmena(v, cesky)
-                    if (v.firstOrNull()?.isUpperCase() == true) opraveno = opraveno.replaceFirstChar { it.uppercaseChar() }
-                    prekladyVoleb[v] = opraveno
-                    if (--zbyva == 0) posli()
-                }
-            }, {
-                ui.post { if (--zbyva == 0) posli() }
-            })
+        val zacatek = System.currentTimeMillis()
+        // VELKÁ PÍSMENA Google nepřeloží (bere je jako zkratku) → "Jen první velké"
+        val texty = chybi.map(CisteniVoleb::proPreklad)
+        prelozVolby(texty) { cesky ->
+            // mezitím skončilo spojení → seznam rozpracovaných už patří nové relaci, nesahat na něj
+            if (relace != relaceCteni.get()) return@prelozVolby
+            volbyVPrekladu -= chybi
+            chybi.forEachIndexed { i, v ->
+                val c = cesky[i] ?: return@forEachIndexed
+                // jména postav nepřekládat ("Dutch" ≠ "holandština") – stejně jako u titulků
+                var opraveno = opravJmena(texty[i], c)
+                if (v.firstOrNull()?.isUpperCase() == true) opraveno = opraveno.replaceFirstChar { it.uppercaseChar() }
+                prekladyVoleb[v] = opraveno
+            }
+            zapis("[volby přeloženy: ${chybi.size} za ${System.currentTimeMillis() - zacatek} ms ${prekladac.zdroj}: ${chybi.joinToString(" | ") { prekladyVoleb[it] ?: "?" }}]")
+            posliVolby()
         }
+    }
+
+    /** Pošle aktuální volby do televize – až když se žádná z nich zrovna nepřekládá. */
+    private fun posliVolby() {
+        val volby = volbyPosledni
+        if (!bezi || !Volby.zapnuto || Volby.rezimText || volby.isEmpty() || volby.any { it in volbyVPrekladu }) return
+        val jazyk = nast.jazykNeboCs
+        Propojeni.Vysilac.nastavVolby(volby.map { v ->
+            // neviditelná značka = řádek se jménem NPC (přijímač ho nastyluje jinak než volby)
+            val text = if (v == volbyJmeno) CisteniVoleb.ZNACKA_NPC + CisteniVoleb.jmenoNpc(v, jazyk) else prekladyVoleb[v] ?: v
+            // ikona tlačítka za textem: " ⁤✕" (neviditelná značka + symbol; starý přijímač ukáže jen " ✕")
+            val ikona = if (Volby.gta) ikonyVoleb[v] else null
+            if (ikona != null) text + " " + CisteniVoleb.ZNACKA_IKONY + ikona.znak else text
+        }, volbyVybrana)
+    }
+
+    /**
+     * Přeloží volby jedním dotazem (spojené po řádcích). Když se odpověď nedá rozdělit
+     * zpět na stejný počet řádků, přeloží je po jedné. Výsledek (null = nepřeloženo) na hlavním vlákně.
+     */
+    private fun prelozVolby(volby: List<String>, hotovo: (List<String?>) -> Unit) {
+        fun poJedne() {
+            val vysledky = arrayOfNulls<String>(volby.size)
+            var zbyva = volby.size
+            volby.forEachIndexed { i, v ->
+                prekladac.preloz(v, { c -> ui.post { vysledky[i] = c; if (--zbyva == 0) hotovo(vysledky.toList()) } },
+                    { ui.post { if (--zbyva == 0) hotovo(vysledky.toList()) } })
+            }
+        }
+        if (volby.size == 1) { poJedne(); return }
+        prekladac.preloz(DavkaVoleb.spoj(volby), { c ->
+            ui.post {
+                val casti = DavkaVoleb.rozdel(c, volby.size)
+                if (casti != null) hotovo(casti)
+                else { zapis("[volby: překlad dávky nesedí na ${volby.size} řádků → po jedné]"); poJedne() }
+            }
+        }, { ui.post { poJedne() } })
     }
 
     /** Telefon: výřez titulků z obrazu v grafickém čipu (OpenGL). */
@@ -2236,6 +2368,7 @@ class RemotePlayService : Service() {
         platnostPrekladu.zrus()
         platnostOcrVoleb.zrus()
         volbyCtu = false
+        volbyVPrekladu.clear()
         stabilitaTitulku.reset()
         textVRamecku.reset()
         prectenoPosledne = ""
@@ -2386,6 +2519,7 @@ class RemotePlayService : Service() {
     }
 
     companion object {
+        const val SNIMKY_VOLEB_MAX = 30
         private val hlidaniPs5 = HlidaniPs5()
         @Volatile var pribehStav = "Příběh: čekám na Remote Play…"
         const val ACTION_STOP = "cz.titulky.tv.REMOTE_STOP"

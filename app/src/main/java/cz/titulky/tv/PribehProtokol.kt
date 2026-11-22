@@ -26,7 +26,7 @@ internal object PribehProtokol {
             if (!Regex("D:\\d{2,3}").matches(p[9])) return null
             p[9].substring(2).toInt().takeIf { it in CasovaniPribehu.MIN_PROCENT..CasovaniPribehu.MAX_PROCENT } ?: return null
         } else null
-        return Zprava(p[1], Titulek(p[1], Propojeni.odEscapuj(p[3]), p[2] == "1", rozvrh, barvy, procenta))
+        return Zprava(p[1], Titulek(p[1], Propojeni.bezVzhledu(Propojeni.odEscapuj(p[3])), p[2] == "1", rozvrh, barvy, procenta))
     }
     fun odpoved(text: String): Odpoved? {
         val p = text.split('\t')

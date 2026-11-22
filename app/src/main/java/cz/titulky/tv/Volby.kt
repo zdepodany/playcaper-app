@@ -27,6 +27,11 @@ object Volby {
     @Volatile var zamceno = false
     /** Režim Text: celý text v rámečku (dopis, SMS, popis úkolu) se přeloží jako celek, ne jako seznam voleb. */
     @Volatile var rezimText = false
+    /**
+     * GTA VI: volby se vybírají tlačítkem (△, ✕), žádná není zvýrazněná → nic nezvýrazňovat
+     * a nečekat na zvýraznění. Spodní řádek je jméno NPC (u L2) – nepřekládat strojově.
+     */
+    @Volatile var gta = false
 
     val VYCHOZI get() = floatArrayOf(0.55f, 0.45f, 0.95f, 0.80f)
 
@@ -39,6 +44,7 @@ object Volby {
         ukazatNaTv = p.getBoolean("volbyUkazat", false)
         zamceno = p.getBoolean("volbyZamek", false)
         rezimText = p.getBoolean("volbyRezimText", false)
+        gta = p.getBoolean("volbyGta", false)
         val v = VYCHOZI
         oblast = floatArrayOf(
             p.getFloat("volbyL", v[0]), p.getFloat("volbyT", v[1]),
@@ -48,7 +54,7 @@ object Volby {
     fun uloz(c: Context) {
         zmeny.incrementAndGet()
         val o = oblast
-        prefs(c).edit().putBoolean("volbyZap", zapnuto).putBoolean("volbyUkazat", ukazatNaTv).putBoolean("volbyZamek", zamceno).putBoolean("volbyRezimText", rezimText)
+        prefs(c).edit().putBoolean("volbyZap", zapnuto).putBoolean("volbyUkazat", ukazatNaTv).putBoolean("volbyZamek", zamceno).putBoolean("volbyRezimText", rezimText).putBoolean("volbyGta", gta)
             .putFloat("volbyL", o[0]).putFloat("volbyT", o[1])
             .putFloat("volbyR", o[2]).putFloat("volbyB", o[3]).apply()
     }
@@ -58,6 +64,104 @@ object Volby {
 
     /** Barva rámečku voleb (stejná žlutá jako nápověda). */
     val ZLUTA = 0xFFFFD54A.toInt()
+}
+
+/**
+ * Překlad všech voleb jedním dotazem: volby se spojí po řádcích, přeloží najednou
+ * a odpověď se zase rozdělí. Místo N dotazů za sebou (každý ~0,3–0,8 s) jen jeden.
+ */
+object DavkaVoleb {
+    fun spoj(volby: List<String>): String = volby.joinToString("\n")
+
+    /** Rozdělí překlad zpět na volby; null = počet řádků nesedí (pak se překládá po jedné). */
+    fun rozdel(preklad: String, pocet: Int): List<String>? {
+        val casti = preklad.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+        return if (casti.size == pocet) casti else null
+    }
+}
+
+/**
+ * Očištění přečtených voleb před překladem.
+ * - Ikony tlačítek vedle voleb čtečka čte jako "O", "(O)", ")", "%" → useknout.
+ * - Stejná volba přečtená trochu jinak ("CREET"/"GREET", "LOCALSO"/"LOCALS") → vzít tu známou,
+ *   ať se nepřekládá a neposílá pořád znovu.
+ * - VELKÁ PÍSMENA Google bere jako zkratku a nepřeloží ("DEFUSE") → překládat "Defuse".
+ * - Krátké volby z interakcí s NPC (GTA VI) mají pevný překlad – jedno slovo bez kontextu
+ *   strojový překlad nedá ("Taunt" → "Posměch").
+ */
+object CisteniVoleb {
+    /** U+2063 (neviditelný oddělovač) před jménem NPC – nový přijímač podle něj zapne vzhled GTA VI, starý ho nezobrazí. */
+    const val ZNACKA_NPC = "\u2063"
+    /** U+2064 (neviditelné plus) před symbolem ikony tlačítka na konci řádku ("Pozdravit ⁤✕"). */
+    const val ZNACKA_IKONY = "\u2064"
+    private val ZBYTEK_IKONY = Regex("""(\s+[O0o]|\s*[(\[<][O0o]|\s*[()\[\]<>%|.,:;_~*•-]+)$""")
+
+    fun ocisti(v: String): String {
+        var t = v.trim().trimStart { ch -> !ch.isLetterOrDigit() && ch != '"' && ch != '„' }.trim()
+        while (true) {
+            val dalsi = ZBYTEK_IKONY.replace(t, "").trim()
+            if (dalsi == t || dalsi.count { it.isLetter() } < 2) return t
+            t = dalsi
+        }
+    }
+
+    /** Najde mezi známými volbami tu, která se liší jen o překlep čtečky; jinak vrátí vstup. */
+    fun stabilizuj(v: String, zname: Collection<String>): String {
+        if (v in zname) return v
+        val a = v.lowercase()
+        val povoleno = when { a.length >= 8 -> 2; a.length >= 5 -> 1; else -> 0 }
+        if (povoleno == 0) return v
+        return zname.firstOrNull { z -> vzdalenost(a, z.lowercase(), povoleno) <= povoleno } ?: v
+    }
+
+    /** GTA VI: jméno NPC u spodního řádku – bez ikony vlevo ("F ANDREW" → "Andrew", "LOCAL" → "Místní"). */
+    fun jmenoNpc(v: String, jazyk: String): String {
+        val bezIkony = v.replace(Regex("""^\S\s+(?=\p{L}{2})"""), "")
+        return zeSlovniku(bezIkony, jazyk) ?: proPreklad(bezIkony)
+    }
+
+    /** Text pro překladač: CELÉ VELKÝMI → "Jen první velké". */
+    fun proPreklad(v: String): String =
+        if (v.any { it.isLetter() } && v.none { it.isLowerCase() }) v.lowercase().replaceFirstChar { it.uppercaseChar() } else v
+
+    /** Pevný překlad krátkých voleb (klíč malými písmeny, bez interpunkce). */
+    fun zeSlovniku(v: String, jazyk: String): String? {
+        if (jazyk != "cs") return null
+        val k = v.lowercase().trim().trimEnd('.', '!', '?')
+        SLOVNIK_CS[k]?.let { return it }
+        // překlepy čtečky: číslice místo písmen ("L0CALS"), jedno špatné písmeno ("CoCALS", "CREET")
+        val opraveny = k.replace('0', 'o').replace('1', 'l')
+        SLOVNIK_CS[opraveny]?.let { return it }
+        if (opraveny.length < 5) return null
+        return SLOVNIK_CS.entries.firstOrNull { vzdalenost(opraveny, it.key, 1) <= 1 }?.value
+    }
+
+    private val SLOVNIK_CS = mapOf(
+        "greet" to "Pozdravit",
+        "taunt" to "Posmívat se",
+        "defuse" to "Uklidnit",
+        "provoke" to "Vyprovokovat",
+        "goodbye" to "Rozloučit se",
+        "local" to "Místní",
+        "locals" to "Místní",
+        "staff member" to "Zaměstnanec",
+        "tourist" to "Turisti",
+        "tourists" to "Turisti",
+    )
+
+    /** Levenshteinova vzdálenost s předčasným koncem nad limitem. */
+    private fun vzdalenost(a: String, b: String, limit: Int): Int {
+        if (kotlin.math.abs(a.length - b.length) > limit) return limit + 1
+        var pred = IntArray(b.length + 1) { it }
+        for (i in 1..a.length) {
+            val ted = IntArray(b.length + 1)
+            ted[0] = i
+            for (j in 1..b.length)
+                ted[j] = minOf(pred[j] + 1, ted[j - 1] + 1, pred[j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1)
+            pred = ted
+        }
+        return pred[b.length]
+    }
 }
 
 /**
