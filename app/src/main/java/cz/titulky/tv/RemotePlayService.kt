@@ -1941,7 +1941,8 @@ class RemotePlayService : Service() {
         val zname = volbyPosledni + prekladyVoleb.keys
         return surove.map { r ->
             val v = CisteniVoleb.ocisti(r)
-            if (v.count { it.isLetter() } >= 2) CisteniVoleb.stabilizuj(v, zname) else null
+            // "T T S" apod. – jen písmena z ikon/šumu, žádné slovo → vyřadit (nepřekládat)
+            if (v.count { it.isLetter() } >= 2 && !CisteniVoleb.jeSum(v)) CisteniVoleb.stabilizuj(v, zname) else null
         }
     }
 
@@ -2055,6 +2056,7 @@ class RemotePlayService : Service() {
     /**
      * Přeloží volby jedním dotazem (spojené po řádcích). Když se odpověď nedá rozdělit
      * zpět na stejný počet řádků, přeloží je po jedné. Výsledek (null = nepřeloženo) na hlavním vlákně.
+     * Volby jsou krátké a časté → bez DeepL (nečerpat zbytečně limit), rovnou Google a další.
      */
     private fun prelozVolby(volby: List<String>, hotovo: (List<String?>) -> Unit) {
         fun poJedne() {
@@ -2062,17 +2064,17 @@ class RemotePlayService : Service() {
             var zbyva = volby.size
             volby.forEachIndexed { i, v ->
                 prekladac.preloz(v, { c -> ui.post { vysledky[i] = c; if (--zbyva == 0) hotovo(vysledky.toList()) } },
-                    { ui.post { if (--zbyva == 0) hotovo(vysledky.toList()) } })
+                    { ui.post { if (--zbyva == 0) hotovo(vysledky.toList()) } }, bezDeepl = true)
             }
         }
         if (volby.size == 1) { poJedne(); return }
-        prekladac.preloz(DavkaVoleb.spoj(volby), { c ->
+        prekladac.preloz(DavkaVoleb.spoj(volby), bezDeepl = true, hotovo = { c ->
             ui.post {
                 val casti = DavkaVoleb.rozdel(c, volby.size)
                 if (casti != null) hotovo(casti)
                 else { zapis("[volby: překlad dávky nesedí na ${volby.size} řádků → po jedné]"); poJedne() }
             }
-        }, { ui.post { poJedne() } })
+        }, chyba = { ui.post { poJedne() } })
     }
 
     /** Telefon: výřez titulků z obrazu v grafickém čipu (OpenGL). */

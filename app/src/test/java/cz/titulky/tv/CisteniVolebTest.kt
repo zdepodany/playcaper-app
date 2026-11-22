@@ -61,6 +61,34 @@ class CisteniVolebTest {
         assertEquals("Zaměstnanec", CisteniVoleb.jmenoNpc("F STAFF MEMBER", "cs"))
     }
 
+    /** Záznam 22. 11. 2026: ikona tlačítka přečtená jako písmeno → slovník volbu nepoznal a šla na DeepL. */
+    @Test fun slovnikPoznaVolbuSeZbytkemIkony() {
+        val ze_zaznamu = mapOf(
+            "GREET (X" to "Pozdravit", "GREET X" to "Pozdravit", "TAUNT C" to "Posmívat se",
+            "TAUNT D" to "Posmívat se", "PROVOKE O E" to "Vyprovokovat", "CDEFUSE X" to "Uklidnit",
+            "GOODBYE" to "Rozloučit se", "LOCAL" to "Místní")
+        for ((vstup, cekam) in ze_zaznamu) {
+            val v = CisteniVoleb.ocisti(vstup)
+            assertEquals(vstup, cekam, CisteniVoleb.zeSlovniku(v, "cs"))
+        }
+    }
+
+    @Test fun jednoPismenoNaKonciSkutecneVolbyNeprekazi() {
+        // klíč se zkracuje jen pro hledání – volba mimo slovník se dál překládá celá
+        assertNull(CisteniVoleb.zeSlovniku("Plan B", "cs"))
+        assertEquals("plan", CisteniVoleb.klicSlovniku("Plan B"))
+        assertEquals("staff member", CisteniVoleb.klicSlovniku("STAFF MEMBER X"))
+    }
+
+    @Test fun samaPismenaJsouSum() {
+        assertTrue(CisteniVoleb.jeSum("T T S"))
+        assertTrue(CisteniVoleb.jeSum("X O"))
+        assertTrue(CisteniVoleb.jeSum("( % )"))
+        assertFalse(CisteniVoleb.jeSum("GREET X"))
+        assertFalse(CisteniVoleb.jeSum("Go"))
+        assertFalse(CisteniVoleb.jeSum("Ask about Lucia"))
+    }
+
     @Test fun turisti() {
         assertEquals("Turisti", CisteniVoleb.jmenoNpc("TOURIST", "cs"))
         assertEquals("Turisti", CisteniVoleb.jmenoNpc("TOURISTS", "cs"))

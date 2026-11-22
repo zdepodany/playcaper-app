@@ -114,8 +114,11 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
             .addOnFailureListener { chyba(it.message ?: "Neznámá chyba") }
     }
 
-    /** Přeloží anglický text do češtiny. */
-    fun preloz(text: String, hotovo: (String) -> Unit, chyba: (String) -> Unit) {
+    /**
+     * Přeloží anglický text do češtiny.
+     * [bezDeepl] = DeepL přeskočit (krátké volby v interakcích – nečerpat zbytečně limit).
+     */
+    fun preloz(text: String, hotovo: (String) -> Unit, chyba: (String) -> Unit, bezDeepl: Boolean = false) {
         val vstup = upravSlang(text.trim())
         if (vstup.isEmpty()) { hotovo(""); return }
         cache.get(vstup)?.let { zdroj = "paměť"; hotovo(it); return }
@@ -127,7 +130,7 @@ class Prekladac(context: android.content.Context? = null, cilovy: String = "cs")
             var vysledek: String? = null
             var odkud = ""
             // 0) DeepL – jen s vlastním klíčem uživatele
-            vysledek = zkusDeepl(vstup, cil)
+            if (!bezDeepl) vysledek = zkusDeepl(vstup, cil)
             if (!vysledek.isNullOrBlank()) odkud = "deepl"
             // 1) Google – 2 pokusy (udržované spojení mohl Google mezitím zavřít)
             if (vysledek.isNullOrBlank() && ted >= googlePauzaDo) {

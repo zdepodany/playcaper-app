@@ -124,10 +124,29 @@ object CisteniVoleb {
     fun proPreklad(v: String): String =
         if (v.any { it.isLetter() } && v.none { it.isLowerCase() }) v.lowercase().replaceFirstChar { it.uppercaseChar() } else v
 
-    /** Pevný překlad krátkých voleb (klíč malými písmeny, bez interpunkce). */
+    /**
+     * Šum ze čtečky: samá jednotlivá písmena a značky bez skutečného slova ("T T S", "X O").
+     * Taková volba ve hře neexistuje → nepřekládat ani neukazovat.
+     */
+    fun jeSum(v: String): Boolean {
+        val slova = v.split(Regex("\\s+")).filter { s -> s.any { it.isLetterOrDigit() } }
+        return slova.isEmpty() || slova.all { s -> s.count { it.isLetter() } <= 1 }
+    }
+
+    /**
+     * Klíč pro slovník: bez zbytků ikony tlačítka na konci ("GREET (X" → "greet",
+     * "PROVOKE O E" → "provoke", "TAUNT C" → "taunt"). Jen pro hledání, zobrazený text se nemění.
+     */
+    internal fun klicSlovniku(v: String): String {
+        val slova = v.lowercase().trim().split(Regex("\\s+")).toMutableList()
+        while (slova.size > 1 && slova.last().count { it.isLetter() } <= 1) slova.removeAt(slova.lastIndex)
+        return slova.joinToString(" ").trim().trimEnd('.', '!', '?')
+    }
+
+    /** Pevný překlad krátkých voleb (klíč malými písmeny, bez interpunkce a zbytků ikon). */
     fun zeSlovniku(v: String, jazyk: String): String? {
         if (jazyk != "cs") return null
-        val k = v.lowercase().trim().trimEnd('.', '!', '?')
+        val k = klicSlovniku(v)
         SLOVNIK_CS[k]?.let { return it }
         // překlepy čtečky: číslice místo písmen ("L0CALS"), jedno špatné písmeno ("CoCALS", "CREET")
         val opraveny = k.replace('0', 'o').replace('1', 'l')
