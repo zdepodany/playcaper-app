@@ -26,6 +26,14 @@ assert.equal(sample.id, '9223372036854775807');
 assert.equal(sample.text, 'Příliš žluťoučký\nDruhý řádek\\n');
 assert.deepEqual(sample.layout, [0.5, 0.9, 0.8, 1.2]);
 assert.equal(packet('PCT1\t1\t0\tt\t').duration, 6000);
+// GTA VI: neviditelná značka U+2063 na začátku textu zapne vzhled a z textu zmizí (i u Story přes PCS1).
+const gtaCaption = packet('PCT1\t1\t6000\t\u2063Lucia: Jedeme\t');
+assert.equal(gtaCaption.gta, true);
+assert.equal(gtaCaption.text, 'Lucia: Jedeme');
+assert.equal(packet('PCT1\t1\t6000\tJedeme\t').gta, false);
+const gtaStory = packet('PCS1\t' + 'a'.repeat(32) + '.1.0.0\t0\t\u2063Jason: Pojď\t0.5\t0.9\t0.8\t1\t0');
+assert.equal(gtaStory.gta, true);
+assert.equal(gtaStory.text, 'Jason: Pojď');
 assert.equal(packet('PCT1\t1\t999999999999\tt\t').duration, 60000);
 assert.equal(packet('PCT1\t1\t6000\tt\t\tNaN\t0.9\t0.8\t1').layout, null);
 assert.equal(packet('PCT1\t1\t6000\tt\t\tB:123').layout, null);

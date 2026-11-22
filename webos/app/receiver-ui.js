@@ -3,6 +3,10 @@
     "use strict";
     window.PlayCaptionReceiverUI = function (document) {
         var choices = document.getElementById("choices");
+        var NPC = "\u2063";
+        // Neviditelná značka U+2064 + symbol na konci řádku = ikona tlačítka ve hře ("Pozdravit \u2064✕").
+        var ICON = "\u2064";
+        var ICONS = { "\u2715": "icon-cross", "\u25B3": "icon-triangle", "\u25CB": "icon-circle", "\u25A1": "icon-square", "L2": "icon-l2" };
         var yellow = document.getElementById("choice-frame");
         var blue = document.getElementById("ocr-frame");
         var subtitle = document.getElementById("subtitle");
@@ -62,22 +66,35 @@
             node.style.height = ((area[3] - area[1]) * 100) + "%";
         }
 
-        function positionChoices(area) {
+        // Volby: box jen tak široký jako text, přimknutý k anglickým volbám ve hře.
+        // Text (dopis, -2): pevná šířka kvůli zalamování odstavců.
+        function positionChoices(area, fit, gta) {
             var leftRoom = area[0] - 0.02;
             var rightRoom = 1 - area[2] - 0.02;
-            var width = Math.min(0.42, Math.max(leftRoom, rightRoom));
-            var left = leftRoom >= rightRoom ? area[0] - width - 0.01 : area[2] + 0.01;
-            var top = area[1];
+            var toLeft = leftRoom >= rightRoom;
+            var width = Math.min(fit ? 0.32 : 0.42, Math.max(leftRoom, rightRoom));
+            var left = toLeft ? area[0] - width - 0.01 : area[2] + 0.01;
             if (width < 0.2) {
                 // Široký dokument nemá místo vedle; překlad zůstane v jeho zvolené oblasti.
                 width = Math.min(0.8, Math.max(0.25, area[2] - area[0]));
                 left = Math.min(area[0], 1 - width);
+                fit = false;
             }
-            choices.style.left = (Math.max(0, left) * 100) + "%";
-            choices.style.width = (width * 100) + "%";
+            choices.className = (gta ? "gta" : "") + (fit && toLeft ? " to-left" : "");
+            if (fit && toLeft) {
+                choices.style.left = "auto";
+                choices.style.right = ((1 - area[0] + 0.01) * 100) + "%";
+            } else {
+                choices.style.right = "auto";
+                choices.style.left = (Math.max(0, left) * 100) + "%";
+            }
+            choices.style.width = fit ? "auto" : (width * 100) + "%";
+            choices.style.maxWidth = fit ? (width * 100) + "%" : "none";
             choices.style.maxHeight = "90vh";
             var viewport = document.documentElement.clientHeight || 1080;
             var height = Math.min(0.9, choices.scrollHeight / viewport || 0);
+            // GTA VI: volby rostou odspodu (nad jménem NPC) → zarovnat ke spodku rámečku
+            var top = gta ? area[3] - height : area[1];
             choices.style.top = (Math.max(0.01, Math.min(top, 0.99 - height)) * 100) + "%";
         }
 
@@ -100,14 +117,28 @@
             if (!changed) return true;
             lastChoiceId = packet.id;
             choices.textContent = "";
+            // Neviditelná značka U+2063 před řádkem = jméno NPC (GTA VI); starší přijímače ji jen nezobrazí.
+            var gta = false;
             packet.items.forEach(function (text, index) {
                 var row = document.createElement("div");
-                row.textContent = text;
-                row.className = "choice" + (index === packet.selected ? " selected" : "");
+                var npc = text.charAt(0) === NPC;
+                if (npc) gta = true;
+                var mark = text.indexOf(ICON), icon = null;
+                if (mark >= 0) {
+                    icon = ICONS[text.slice(mark + 1).trim()] || null;
+                    text = text.slice(0, mark).replace(/\s+$/, "");
+                }
+                row.textContent = npc ? text.slice(1) : text;
+                row.className = "choice" + (index === packet.selected ? " selected" : "") + (npc ? " npc" : "");
+                if (icon) {
+                    var badge = document.createElement("span");
+                    badge.className = "icon " + icon;
+                    row.appendChild(badge);
+                }
                 choices.appendChild(row);
             });
             choices.hidden = packet.items.length === 0;
-            positionChoices(packet.area);
+            positionChoices(packet.area, packet.selected !== -2, gta);
             return true;
         };
 
@@ -179,6 +210,7 @@
             captionUntil = now + packet.duration;
             if (!same) { captionOffset = 0; nextCaption(now); }
             subtitle.style.outline = packet.editing ? "4px dashed #78e89b" : "";
+            subtitle.className = packet.gta ? "gta" : "";
             greenUntil = now + 8000;
         };
 

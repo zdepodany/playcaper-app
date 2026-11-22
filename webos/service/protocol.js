@@ -72,10 +72,14 @@ exports.parse = function (buffer) {
             ];
         }
     }
+    // Neviditelná značka U+2063 na začátku = vzhled GTA VI; starší přijímače ji jen nezobrazí.
+    var caption = unescape(fields[3]);
+    var gta = caption.charAt(0) === "\u2063";
     return {
         kind: "subtitle",
         id: fields[1],
-        text: unescape(fields[3]),
+        text: gta ? caption.slice(1) : caption,
+        gta: gta,
         hint: unescape(fields[4]),
         duration: Math.min(60000, duration > 0 ? duration : 6000),
         layout: layout,

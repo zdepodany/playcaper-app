@@ -138,3 +138,26 @@ html, body {
     background: rgba(0, 0, 0, 0.8);
     border-radius: 8px;
 }
+
+/* GTA VI titulky (značka U+2063 z telefonu): tmavě fialový poloprůhledný podklad, stín textu a linka v barvách
+   západu slunce. Písmo Barlow Condensed má jen LG balíček, Samsung použije zúžené systémové písmo. */
+#subtitle.gta {
+    padding: 16px 30px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(14, 8, 24, 0.66), rgba(14, 8, 24, 0.52));
+    box-shadow: 0 0 22px 6px rgba(14, 8, 24, 0.32);
+    font-family: "Arial Narrow", Arial, sans-serif;
+    letter-spacing: 0.02em;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.85), 0 2px 4px rgba(0, 0, 0, 0.55);
+}
+#subtitle.gta::after {
+    content: "";
+    position: absolute;
+    left: 22%;
+    right: 22%;
+    bottom: 0;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(255, 79, 154, 0), #ff4f9a 25%, #ffa24c 75%, rgba(255, 162, 76, 0));
+}
+#subtitle.gta span { text-transform: uppercase; letter-spacing: 0.07em; }
