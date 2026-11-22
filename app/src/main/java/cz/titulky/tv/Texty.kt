@@ -575,6 +575,20 @@ object Texty {
     private val NOVE: Map<String, List<String>> = mapOf(
         // hlavní obrazovka – nadpisy
         "hlJazyk" to listOf("Jazyk", "Jazyk"),
+        // telefon: stránka „Připojit ke konzoli“ (PS5)
+        "ppUvodNadpis" to listOf("Připoj telefon k PS5", "Pripoj telefón k PS5"),
+        "ppUvod" to listOf("PS5 posílá obraz přes Remote Play, proto PlayCaption potřebuje vlastní přihlášení. Založ na PS5 druhého uživatele, ty hraješ dál na svém účtu.", "PS5 posiela obraz cez Remote Play, preto PlayCaption potrebuje vlastné prihlásenie. Založ na PS5 druhého používateľa, ty hráš ďalej na svojom účte."),
+        "ppUvodBezUctu" to listOf("Přidání: tlačítko PS → profil → Přepnout uživatele → Přidat uživatele.", "Pridanie: tlačidlo PS → profil → Prepnúť používateľa → Pridať používateľa."),
+        "ppK1Nadpis" to listOf("Přihlas se k PlayStation", "Prihlás sa k PlayStation"),
+        "ppK1" to listOf("Přihlas se druhým uživatelem, ne hlavním účtem.", "Prihlás sa druhým používateľom, nie hlavným účtom."),
+        "ppNeprihlasen" to listOf("Zatím nepřihlášeno", "Zatiaľ neprihlásené"),
+        "ppPrihlasen" to listOf("✔ Přihlášeno k PlayStation", "✔ Prihlásené k PlayStation"),
+        "ppK2Nadpis" to listOf("Najdi PS5 v síti", "Nájdi PS5 v sieti"),
+        "ppK2" to listOf("PS5 musí být zapnutá a ve stejné Wi-Fi jako telefon.", "PS5 musí byť zapnutá a v rovnakej Wi-Fi ako telefón."),
+        "ppK3Nadpis" to listOf("Spáruj telefon s PS5 kódem", "Sparuj telefón s PS5 kódom"),
+        "ppK3" to listOf("Na PS5: Nastavení → Systém → Aplikace Remote Play → zapni Remote Play (na obou účtech). Pak na druhém uživateli zvol „Spárovat zařízení“ a opiš osmimístný kód.", "Na PS5: Nastavenia → Systém → Aplikácia Remote Play → zapni Remote Play (na oboch účtoch). Potom na druhom používateľovi zvoľ „Spárovať zariadenie“ a prepíš osemmiestny kód."),
+        "navDomu" to listOf("Domů", "Domov"),
+        "navNastaveni" to listOf("Nastavení", "Nastavenia"),
         "hlKonzole" to listOf("Konzole", "Konzoly"),
         "hlStav" to listOf("Stav", "Stav"),
         "coPrekladat" to listOf("Co překládat", "Čo prekladať"),
@@ -662,7 +676,7 @@ object Texty {
     fun t(kod: String, klic: String): String {
         val i = KODY.indexOf(kod).coerceAtLeast(0)
         NOVE[klic]?.getOrNull(i)?.let { return it }
-        return T[klic]?.getOrNull(i) ?: T[klic]?.first() ?: klic
+        return T[klic]?.getOrNull(i) ?: T[klic]?.first() ?: NOVE[klic]?.first() ?: klic
     }
 
     fun t(context: Context, klic: String) = t(Nastaveni(context).jazykNeboCs, klic)

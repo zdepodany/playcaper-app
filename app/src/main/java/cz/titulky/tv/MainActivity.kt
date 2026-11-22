@@ -33,13 +33,18 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 /**
  * PlayCaption – hlavní obrazovka pro televizi (ovládání šipkami + OK).
  * Úvod s logem → výběr jazyka (jen poprvé) → jednoduchá hlavní obrazovka.
  * Stará obrazovka s testovacími tlačítky: VyvojActivity (podržet OK na logu).
  */
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
 
     private val nast by lazy { Nastaveni(this) }
     private val udaje by lazy { RemotePlayUdaje(this) }
@@ -94,7 +99,7 @@ class MainActivity : Activity() {
         if (Rezim.jeTelefon(this) && RemotePlayService.aktivni)
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        if (obrazovka == "hlavni") ukazHlavni()
+        if (obrazovka == "hlavni") ukazHlavni() else if (obrazovka == "nastaveni") ukazNastaveni()
         // vrátil se z nastavení a povolení pořád nemá → televize ho asi schovává, ukázat návod
         if (zkouselPovoleni && !Rezim.jeTelefon(this) && !Settings.canDrawOverlays(this)) ukazNavodPovoleni()
     }
@@ -115,7 +120,9 @@ class MainActivity : Activity() {
             "psn", "psnqr" -> ukazPripojeni()
             "xboxkod" -> ukazPripojeniXbox()
             "xbox" -> { xboxRelace?.zastav(); xboxRelace = null; ukazHlavni() }
-            "pripojeni", "jazyk" -> if (nast.jazyk != null) ukazHlavni() else super.onBackPressed()
+            "nastaveni" -> ukazHlavni()
+            "jazyk" -> if (nast.jazyk != null) { obnovAktualni(jazykZNastaveni); jazykZNastaveni = false } else super.onBackPressed()
+            "pripojeni" -> if (nast.jazyk != null) ukazHlavni() else super.onBackPressed()
             "prijem" -> zpetNaVyber()
             else -> super.onBackPressed()
         }
@@ -178,6 +185,24 @@ class MainActivity : Activity() {
 
     private fun ukazJazyk() {
         obrazovka = "jazyk"
+        if (telefon) {
+            ui.removeCallbacks(obnova)
+            setContent {
+                PlayCaperTema {
+                    JazykObrazovka(
+                        jazyky = Texty.JAZYKY.filter { it.kod in AKTIVNI_JAZYKY },
+                        pocatecni = nast.jazyk?.takeIf { it in AKTIVNI_JAZYKY } ?: "cs",
+                        text = { kod, klic -> Texty.t(kod, klic) },
+                        naPokracovat = { kod ->
+                            nast.jazyk = kod
+                            obnovAktualni(jazykZNastaveni)
+                            jazykZNastaveni = false
+                        },
+                    )
+                }
+            }
+            return
+        }
         var vybrany = nast.jazyk?.takeIf { it in AKTIVNI_JAZYKY } ?: "cs"
         val nadpis = text(Texty.t(vybrany, "vyberJazyk"), 30f, Color.WHITE, tucne = true).apply { gravity = Gravity.CENTER }
         val popis = text(Texty.t(vybrany, "vyberJazykPopis"), 18f, TEXT2).apply { gravity = Gravity.CENTER }
@@ -189,7 +214,8 @@ class MainActivity : Activity() {
             text = Texty.t(vybrany, "pokracovat")
             setOnClickListener {
                 nast.jazyk = vybrany
-                ukazHlavni()
+                obnovAktualni(jazykZNastaveni)
+                jazykZNastaveni = false
             }
         }
 
@@ -262,6 +288,7 @@ class MainActivity : Activity() {
         zastavServer()
         if (!telefon && PrijemService.bezi) { ukazPrijem(); return }
         obrazovka = "hlavni"
+        if (telefon) { ukazHlavniTelefon(); return }
         stavUrovenPosledni = null
         stavAnimace?.cancel(); stavAnimace = null
         stavZhasina?.cancel(); stavZhasina = null
@@ -345,37 +372,7 @@ class MainActivity : Activity() {
             null
         }
 
-        // ---------- jazyk
-        val j = Texty.JAZYKY.firstOrNull { it.kod == jazyk } ?: Texty.JAZYKY[0]
-        val jazykKarta = vodorovne().apply {
-            gravity = Gravity.CENTER_VERTICAL
-            background = zaobleni(KARTA, 18f)
-            setPadding(dp(15), dp(12), dp(15), dp(12))
-        }
-        val jazykTexty = if (telefon) svisle() else vodorovne().apply { gravity = Gravity.BOTTOM }
-        jazykTexty.addView(text("${j.vlajka}  ${j.nazev}", pismo(16f, 21f), Color.WHITE).jedenRadek(),
-            if (telefon) plnaSirka() else LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        jazykTexty.addView(text(t("zdrojKratce"), pismo(11.5f, 14f), TEXT2),
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                if (telefon) topMargin = dp(2) else leftMargin = dp(8)
-            })
-        // nahoře jazyk + Změnit, pod tím řádek DeepL (klepnutím se otevře okno s klíčem)
-        val jazykHorni = vodorovne().apply { gravity = Gravity.CENTER_VERTICAL }
-        jazykHorni.addView(jazykTexty, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        jazykHorni.addView(tlacitkoSede(t("tvZmenitKratce")) { ukazJazyk() })
-        val deeplRadek = (deeplLimitRadek() ?: text(t("deeplPridat"), pismo(12f, 14f), TEXT2).jedenRadek()).let { obsahDeepl ->
-            FrameLayout(this).apply {
-                isFocusable = true
-                isClickable = true
-                background = vyber(Color.TRANSPARENT, radius = 10f)
-                setPadding(dp(6), dp(6), dp(6), dp(6))
-                setOnClickListener { zadejDeeplKlic() }
-                addView(obsahDeepl, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            }
-        }
-        jazykKarta.orientation = LinearLayout.VERTICAL
-        jazykKarta.addView(jazykHorni, plnaSirka())
-        jazykKarta.addView(deeplRadek, plnaSirka().apply { topMargin = dp(6); leftMargin = -dp(6); rightMargin = -dp(6) })
+        val jazykKarta = if (telefon) null else jazykKarta()
 
         // ---------- stav (pruh, který se při připojování plní zeleně)
         stavKarta = object : FrameLayout(this) {
@@ -475,25 +472,7 @@ class MainActivity : Activity() {
             konzole.addView(rz)
         }
 
-        // ---------- co překládat
-        val co = karta()
-        co.addView(prepinac(t("dialogy"), { nast.dialogy }, { nast.dialogy = it }, t("ano"), t("ne"), t("dialogyPopis")))
-        if (!telefon) {
-            co.addView(cara())
-            co.addView(prepinac(t("prekryvat"), { nast.prekryvat }, { nast.prekryvat = it }, t("ano"), t("ne"), t("prekryvatPopis")))
-        }
-        // menu a nápovědy se nepřekládají samy – v mobilní aplikaci si je každý přeloží žlutým rámečkem (Text)
-        nast.napovedy = false
-        if (telefon) {
-            // telefon: jen nenápadná poznámka, ne řádek, který vypadá jako nastavení bez přepínače
-            co.addView(text(t("napovedyHint"), 14f, TEXT2), odsazeni(top = 12))
-        } else run {
-            co.addView(cara())
-            val r = svisle()
-            r.addView(text(t("napovedy"), pismo(16f, 20f), Color.WHITE).jedenRadek(), plnaSirka())
-            r.addView(text(if (telefon) t("napovedyTelefon") else t("napovedyJenMobil"), pismo(12f, 15f), TEXT2), odsazeni(top = 2))
-            co.addView(r)
-        }
+        val co = if (telefon) null else kartaCo()
 
         // ---------- tip a poděkování (Chiaki / chiaki-ng, AGPLv3 – musí zůstat)
         val tip = text(t("tipPripojeni"), pismo(12.5f, 15f), TEXT2).apply {
@@ -515,25 +494,18 @@ class MainActivity : Activity() {
             // krátké nadpisy sekcí (místo číslovaných otázek průvodce)
             obsah.addView(nadpisTel(t("hlKonzole")))
             obsah.addView(konzole, odsazeni(bottom = 18))
-            obsah.addView(nadpisTel(t("hlJazyk")))
-            obsah.addView(jazykKarta, odsazeni(bottom = 18))
-            obsah.addView(nadpisTel(t("hlVystup")))
-            obsah.addView(kartaVystupuTv(), odsazeni(bottom = 18))
-            obsah.addView(nadpisTel(t("coPrekladat")))
-            obsah.addView(co, odsazeni(bottom = 24))
             obsah.addView(tlacitkoCervene(t("hratBtn")) {
                 if (nejakaKonzole) startActivity(Intent(this, TelefonActivity::class.java)) else ukazPripojeni()
             }.apply { textSize = 28f * SKALA; setPadding(dp(28), dp(18), dp(28), dp(18)) })
             // patička: krátký tip
             tip.text = t("tipPripojeni").trimStart { !it.isLetterOrDigit() }
             obsah.addView(tip, odsazeni(top = 16))
-            obnovTvKartu()
         } else {
             // televize: mřížka – levý a pravý sloupec mají v každém řádku stejnou výšku, vše v jedné rovině
             obsah.addView(logoRadek, odsazeni(bottom = 6))
             povoleni?.let { obsah.addView(it, odsazeni(bottom = 12)) }
-            obsah.addView(radekMrizky(bunka(t("hlJazyk"), jazykKarta), bunka(t("hlStav"), stavRadek)))
-            obsah.addView(radekMrizky(bunka(t("hlKonzole"), konzole), bunka(t("coPrekladat"), co)), odsazeni(top = 12))
+            obsah.addView(radekMrizky(bunka(t("hlJazyk"), jazykKarta!!), bunka(t("hlStav"), stavRadek)))
+            obsah.addView(radekMrizky(bunka(t("hlKonzole"), konzole), bunka(t("coPrekladat"), co!!)), odsazeni(top = 12))
 
             // podpora – QR Platba
             val podpora: View = if (PODPORA_QR.isNotEmpty()) {
@@ -602,31 +574,62 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Telefon: karta „Kde chceš titulky?“ (televize / jen tady) – obsah jako dřív. */
-    private fun kartaVystupuTv(): View {
-        val vystup = vodorovne().apply {
+    /** Karta s jazykem překladu a klíči DeepL (TV: hlavní obrazovka, telefon: Nastavení). */
+    private fun jazykKarta(): View {
+        val j = Texty.JAZYKY.firstOrNull { it.kod == jazyk } ?: Texty.JAZYKY[0]
+        val jazykKarta = vodorovne().apply {
             gravity = Gravity.CENTER_VERTICAL
-            background = vyber(KARTA, radius = 18f)
-            minimumHeight = dp(88)
-            setPadding(dp(22), dp(16), dp(22), dp(16))
-            isFocusable = true
-            setOnClickListener { vyberVystupTv() }
+            background = zaobleni(KARTA, 18f)
+            setPadding(dp(15), dp(12), dp(15), dp(12))
         }
-        val popis = svisle()
-        tvNazev = text("", 20f, Color.WHITE).apply {
-            maxLines = 2
-            ellipsize = android.text.TextUtils.TruncateAt.END
-        }.also { popis.addView(it) }
-        tvPlatforma = text("", 14f, TEXT2).also { popis.addView(it, odsazeni(top = 2)) }
-        tvStav = text("", 15f, TEXT2).also { popis.addView(it, odsazeni(top = 6)) }
-        popis.addView(LgDevModeView(this) {
-            val p = TvProfily(this)
-            if (p.pouzeTelefon && Propojeni.Vysilac.cilIp == null) null
-            else (if (Propojeni.Vysilac.cilIp != null) TvProfily.aktivniId else p.posledniId)?.let { p.najdi(it) }
-        }.apply { textSize = 13f * SKALA })
-        vystup.addView(popis, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = dp(16) })
-        vystup.addView(tlacitkoSede(t("tvZmenitKratce")) { vyberVystupTv() })
-        return vystup
+        val jazykTexty = if (telefon) svisle() else vodorovne().apply { gravity = Gravity.BOTTOM }
+        jazykTexty.addView(text("${j.vlajka}  ${j.nazev}", pismo(16f, 21f), Color.WHITE).jedenRadek(),
+            if (telefon) plnaSirka() else LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        jazykTexty.addView(text(t("zdrojKratce"), pismo(11.5f, 14f), TEXT2),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                if (telefon) topMargin = dp(2) else leftMargin = dp(8)
+            })
+        // nahoře jazyk + Změnit, pod tím řádek DeepL (klepnutím se otevře okno s klíčem)
+        val jazykHorni = vodorovne().apply { gravity = Gravity.CENTER_VERTICAL }
+        jazykHorni.addView(jazykTexty, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        jazykHorni.addView(tlacitkoSede(t("tvZmenitKratce")) { jazykZNastaveni = obrazovka == "nastaveni"; ukazJazyk() })
+        val deeplRadek = (deeplLimitRadek() ?: text(t("deeplPridat"), pismo(12f, 14f), TEXT2).jedenRadek()).let { obsahDeepl ->
+            FrameLayout(this).apply {
+                isFocusable = true
+                isClickable = true
+                background = vyber(Color.TRANSPARENT, radius = 10f)
+                setPadding(dp(6), dp(6), dp(6), dp(6))
+                setOnClickListener { zadejDeeplKlic() }
+                addView(obsahDeepl, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+        }
+        jazykKarta.orientation = LinearLayout.VERTICAL
+        jazykKarta.addView(jazykHorni, plnaSirka())
+        jazykKarta.addView(deeplRadek, plnaSirka().apply { topMargin = dp(6); leftMargin = -dp(6); rightMargin = -dp(6) })
+        return jazykKarta
+    }
+
+    /** Karta „Co překládat“ (TV: hlavní obrazovka, telefon: Nastavení). */
+    private fun kartaCo(): View {
+        val co = karta()
+        co.addView(prepinac(t("dialogy"), { nast.dialogy }, { nast.dialogy = it }, t("ano"), t("ne"), t("dialogyPopis")))
+        if (!telefon) {
+            co.addView(cara())
+            co.addView(prepinac(t("prekryvat"), { nast.prekryvat }, { nast.prekryvat = it }, t("ano"), t("ne"), t("prekryvatPopis")))
+        }
+        // menu a nápovědy se nepřekládají samy – v mobilní aplikaci si je každý přeloží žlutým rámečkem (Text)
+        nast.napovedy = false
+        if (telefon) {
+            // telefon: jen nenápadná poznámka, ne řádek, který vypadá jako nastavení bez přepínače
+            co.addView(text(t("napovedyHint"), 14f, TEXT2), odsazeni(top = 12))
+        } else run {
+            co.addView(cara())
+            val r = svisle()
+            r.addView(text(t("napovedy"), pismo(16f, 20f), Color.WHITE).jedenRadek(), plnaSirka())
+            r.addView(text(if (telefon) t("napovedyTelefon") else t("napovedyJenMobil"), pismo(12f, 15f), TEXT2), odsazeni(top = 2))
+            co.addView(r)
+        }
+        return co
     }
 
     /** Řádek konzole: název, stav (rozsvítí se zeleně, když je připravená) a tlačítko. */
@@ -726,9 +729,8 @@ class MainActivity : Activity() {
 
     private fun sekceMala(s: String) = sekce(s).apply { if (!telefon) textSize = 18f * SKALA }
 
-    private fun obnovStav() {
-        obnovTvKartu()
-        if (!::stavText.isInitialized) return
+    /** Stav spojení a konzolí (společný pro TV pruh i telefonní Compose obrazovku). */
+    private fun spocitejStav(): StavDomu {
         val sluzba = RemotePlayService.aktivni
         val spojeni = if (!nejakaKonzole) PrehledSpojeni("stavNesparovano", UrovenSpojeni.VYPNUTO)
             else RemotePlayService.prehledSpojeni()
@@ -757,6 +759,34 @@ class MainActivity : Activity() {
             UrovenSpojeni.CHYBA -> t(if (naXboxu) "banChybaXbox" else "banChybaPs") to podrobnosti
             else -> t(spojeni.klic) to ""
         }
+        // řádky konzolí: rozsvítí se ta, ke které se připojuje / na které se hraje
+        fun radek(jeXbox: Boolean): Pair<String, String> {
+            val sparovana = if (jeXbox) xboxSparovan else udaje.sparovano
+            if (!sparovana) return "off" to t("konNepripojeno")
+            if (jeXbox != naXboxu) return "neutral" to t("konSparovano")
+            return when (uroven) {
+                UrovenSpojeni.OK -> "ready" to t("konPripraveno")
+                UrovenSpojeni.CEKANI -> "wait" to t("konPripravuji")
+                UrovenSpojeni.CHYBA -> "chyba" to t("konChyba")
+                else -> "neutral" to t("konSparovano")
+            }
+        }
+        return StavDomu(
+            uroven = uroven, nadpis = nadpis, podtext = podtext, sluzba = sluzba,
+            hrajuXbox = hrajuXbox, xboxSparovan = xboxSparovan, naXboxu = naXboxu,
+            ps = radek(false), xbox = radek(true),
+            // ⇄ jen když překlad běží a jsou zapnuté obě konzole (zjišťuje služba každých 20 s)
+            ukazPrepnout = sluzba && RemotePlayService.obeZapnute && udaje.sparovano && xboxSparovan)
+    }
+
+    private fun obnovStav() {
+        if (!::stavText.isInitialized) return
+        val st = spocitejStav()
+        val sluzba = st.sluzba
+        val uroven = st.uroven
+        val nadpis = st.nadpis
+        val podtext = st.podtext
+        val hrajuXbox = st.hrajuXbox
         stavText.text = nadpis
         // nápověda: běží → „OK = vypnout“; vypnuto/pozastaveno už říká nadpis („zapni OK“)
         stavOkNapoveda?.let { n ->
@@ -842,26 +872,14 @@ class MainActivity : Activity() {
             }
         }
 
-        // řádky konzolí: rozsvítí se ta, ke které se připojuje / na které se hraje
-        fun radek(jeXbox: Boolean): Pair<String, String> {
-            val sparovana = if (jeXbox) xboxSparovan else udaje.sparovano
-            if (!sparovana) return "off" to t("konNepripojeno")
-            if (jeXbox != naXboxu) return "neutral" to t("konSparovano")
-            return when (uroven) {
-                UrovenSpojeni.OK -> "ready" to t("konPripraveno")
-                UrovenSpojeni.CEKANI -> "wait" to t("konPripravuji")
-                UrovenSpojeni.CHYBA -> "chyba" to t("konChyba")
-                else -> "neutral" to t("konSparovano")
-            }
-        }
-        radek(false).let { (druh, popis) -> vzhledKonzole(psRadek, psStav, druh, popis) }
-        radek(true).let { (druh, popis) -> vzhledKonzole(xboxRadekBox, xboxStav, druh, popis) }
+        vzhledKonzole(psRadek, psStav, st.ps.first, st.ps.second)
+        vzhledKonzole(xboxRadekBox, xboxStav, st.xbox.first, st.xbox.second)
 
         // tlačítko ukazuje konzoli, na které se právě hraje (kliknutím → ta druhá)
         prepnoutBtn?.text = if (hrajuXbox) "⇄ Xbox" else "⇄ PlayStation"
         // tlačítko ⇄ jen když jsou zapnuté obě konzole (zjišťuje služba každých 20 s)
         // jen když překlad běží (jinak služba konzole nekontroluje a údaj by byl starý)
-        val ukazat = sluzba && RemotePlayService.obeZapnute && udaje.sparovano && xboxSparovan
+        val ukazat = st.ukazPrepnout
         prepnoutBtn?.let { b ->
             val v = if (ukazat) View.VISIBLE else View.GONE
             if (b.visibility != v) { if (!ukazat && b.isFocused) stavKarta.requestFocus(); b.visibility = v }
@@ -1077,38 +1095,6 @@ class MainActivity : Activity() {
         }
     }
 
-    private var tvNazev: TextView? = null
-    private var tvPlatforma: TextView? = null
-    private var tvStav: TextView? = null
-
-    private fun obnovTvKartu() {
-        if (!telefon) return
-        val profily = TvProfily(this)
-        val posila = Propojeni.Vysilac.cilIp != null
-        val profil = (if (posila) TvProfily.aktivniId else profily.posledniId)?.let { profily.najdi(it) }
-        val lokalni = !posila && profily.pouzeTelefon
-        tvNazev?.text = when {
-            posila -> Propojeni.Vysilac.cilJmeno.ifBlank { profil?.jmeno ?: t("tvZadnaVybrana") }
-            lokalni -> t("tvJenZarizeni")
-            else -> profil?.jmeno ?: t("tvZadnaVybrana")
-        }.let(::bezIdTv)
-        tvPlatforma?.text = if (lokalni || profil == null) t("tvNastaveniPopis") else when (profil.platforma) {
-            TvPlatforma.WEBOS -> "LG webOS"
-            TvPlatforma.SAMSUNG -> "Samsung (Tizen)"
-            TvPlatforma.ANDROID_TV -> "Android TV / Google TV"
-            else -> t("tvPlatformaNeznama")
-        }
-        tvStav?.text = when {
-            posila -> Texty.prenos(nast.jazykNeboCs, Propojeni.Vysilac.stavPrenosu)
-            lokalni -> t("tvJenZde")
-            profil != null -> "" // vybraná TV bez přenosu – obecná věta navíc nic neříká
-            else -> t("tvVyberVystup")
-        }
-        tvStav?.visibility = if (tvStav?.text.isNullOrEmpty()) View.GONE else View.VISIBLE
-        tvStav?.setTextColor(if (!posila) TEXT2 else if (Propojeni.Vysilac.stavPrenosu.chyba != null)
-            Color.parseColor("#FF7272") else Color.parseColor("#FFC24B"))
-    }
-
     /** „LG PlayCaption · 41CCCAF73407“ → „LG PlayCaption“ (interní ID přijímače uživateli nic neříká). */
     private fun bezIdTv(jmeno: String) = jmeno.replace(Regex("\\s*·\\s*[0-9A-Fa-f]{8,}$"), "")
 
@@ -1215,7 +1201,7 @@ class MainActivity : Activity() {
             .setView(android.widget.ScrollView(this).apply { addView(obsah) })
             .setPositiveButton(t("deeplUlozit")) { _, _ ->
                 nast.deeplKlice = pole.map { it.text.toString() }
-                ukazHlavni()
+                obnovAktualni(obrazovka == "nastaveni")
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -1322,12 +1308,10 @@ class MainActivity : Activity() {
             val profily = TvProfily(this)
             profily.zapamatuj(tv.id, tv.jmeno, tv.ip, platforma)
             profily.zapamatujVyber(tv.id)
-            obnovTvKartu()
             if (Propojeni.Vysilac.cilIp != null) android.widget.Toast.makeText(this, t("tvUlozena").replace("{tv}", tv.jmeno), android.widget.Toast.LENGTH_LONG).show()
         }, {
             TvProfily(this).pouzeTelefon = true
-            obnovTvKartu()
-        }, { ukazHlavni() }).ukaz()
+        }, { obnovAktualni(obrazovka == "nastaveni") }).ukaz()
     }
 
     private fun prevzitOd(tv: Propojeni.Televize) {
@@ -1423,6 +1407,7 @@ class MainActivity : Activity() {
     private fun ukazPripojeni(ukoncitPrihlaseni: Boolean = true) {
         if (ukoncitPrihlaseni) zastavServer()
         obrazovka = "pripojeni"
+        if (telefon) { ukazPripojeniTelefon(ukoncitPrihlaseni); return }
         val sloupec = svisle()
         sloupec.addView(text(t("pripojitKonzoli"), 28f, Color.WHITE, tucne = true), odsazeni(bottom = 16))
         if (telefon && !TvProfily(this).platforma.jenZobrazovac) {
@@ -1526,6 +1511,88 @@ class MainActivity : Activity() {
         hledej()
     }
 
+    // ------------------------------------------------------------------ telefon: Připojit konzoli (PS5) v Compose
+
+    private var psnRevize by androidx.compose.runtime.mutableIntStateOf(0)
+    private var pinText by androidx.compose.runtime.mutableStateOf("")
+    private var hledaniText by androidx.compose.runtime.mutableStateOf("")
+    private var hledaniTon by androidx.compose.runtime.mutableStateOf(Ton.BEZNY)
+    private var hledaniProbiha by androidx.compose.runtime.mutableStateOf(false)
+    private var parovaniText by androidx.compose.runtime.mutableStateOf("")
+    private var parovaniTon by androidx.compose.runtime.mutableStateOf(Ton.BEZNY)
+    private var parovaniProbiha by androidx.compose.runtime.mutableStateOf(false)
+    private var psnQrText by androidx.compose.runtime.mutableStateOf("")
+
+    private fun pripojeniStav(): PripojeniStav {
+        val maUcet = udaje.accountIdBajty() != null
+        val prihlaseni = psnPokus?.vysledek
+        val overuji = prihlaseni?.stav == PsnPokus.Stav.OVERUJE
+        val chyba = prihlaseni?.takeIf { it.stav == PsnPokus.Stav.CHYBA }?.popisChyby(jazyk)
+        return PripojeniStav(
+            ucetText = if (overuji) t("psnOveruji") else chyba ?: if (maUcet) t("ppPrihlasen") else t("ppNeprihlasen"),
+            ucetTon = if (chyba != null) Ton.CHYBA else if (maUcet && !overuji) Ton.OK else Ton.BEZNY,
+            overuji = overuji, maUcet = maUcet,
+            lzeParovat = psnPokus?.lzeParovat(maUcet) ?: maUcet,
+        )
+    }
+
+    private fun hledejPs() {
+        hledaniProbiha = true; hledaniText = t("hledam"); hledaniTon = Ton.BEZNY
+        Thread {
+            val seznam = runCatching { HledacPS.hledej() }.getOrDefault(emptyList())
+            runOnUiThread {
+                val ps = seznam.firstOrNull { it.typ == "PS5" } ?: seznam.firstOrNull()
+                nalezenaIp = ps?.ip
+                hledaniProbiha = false
+                hledaniText = if (ps != null) "✔ ${t("nalezena")}: ${ps.jmeno} (${ps.ip})" else "✘ ${t("nenalezena")}"
+                hledaniTon = if (ps != null) Ton.OK else Ton.CHYBA
+            }
+        }.start()
+    }
+
+    private fun sparujPs() {
+        val ip = nalezenaIp ?: udaje.ipKonzole
+        val cislo = pinText.filter { it.isDigit() }
+        fun chyba(zprava: String) { parovaniText = zprava; parovaniTon = Ton.CHYBA }
+        when {
+            udaje.accountIdBajty() == null || psnPokus?.lzeParovat(true) == false -> chyba(t("nejdrivUcet"))
+            ip == null -> chyba(t("nenalezena"))
+            cislo.length != 8 -> chyba(t("pinChyba"))
+            else -> {
+                parovaniText = t("paruji"); parovaniTon = Ton.BEZNY; parovaniProbiha = true
+                Parovani.sparuj(this, ip, cislo.toInt(), log = {}, hotovo = { ok, zprava ->
+                    runOnUiThread {
+                        parovaniProbiha = false
+                        if (ok) {
+                            parovaniText = "✔ ${t("sparovano")}"; parovaniTon = Ton.OK
+                            AutoStart.nastavZapnuto(this, true)
+                            ui.postDelayed({ ukazHlavni() }, 1200)
+                        } else chyba("✘ $zprava")
+                    }
+                })
+            }
+        }
+    }
+
+    private fun ukazPripojeniTelefon(novy: Boolean) {
+        ui.removeCallbacks(obnova)
+        if (novy) { pinText = ""; parovaniText = ""; parovaniTon = Ton.BEZNY; parovaniProbiha = false; hledaniText = "" }
+        setContent {
+            PlayCaperTema {
+                val revize = psnRevize // změna přihlášení → přepočítat stav
+                PripojeniObrazovka(
+                    t = ::t, st = remember(revize) { pripojeniStav() },
+                    hledani = HledaniStav(hledaniText, hledaniTon, hledaniProbiha),
+                    pin = pinText, naPin = { pinText = it },
+                    parovani = parovaniText, parovaniTon = parovaniTon, parovaniProbiha = parovaniProbiha,
+                    naZpet = { ukazHlavni() },
+                    naUcet = { ukazPsnTelefonem() }, naHledat = { hledejPs() }, naSparovat = { sparujPs() },
+                )
+            }
+        }
+        if (novy || hledaniText.isEmpty()) hledejPs()
+    }
+
     // ------------------------------------------------------------------ přihlášení PSN (prohlížeč)
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -1573,7 +1640,8 @@ class MainActivity : Activity() {
         pokus = PsnPokus(PsnPrihlaseni::accountId, udaje::ulozAccountId) {
             runOnUiThread {
                 if (psnPokus !== pokus || isFinishing || isDestroyed) return@runOnUiThread
-                if (pokus.stav == PsnPokus.Stav.OVERUJE && obrazovka != "pripojeni") psnStav?.text = t("psnOveruji")
+                if (pokus.stav == PsnPokus.Stav.OVERUJE && obrazovka != "pripojeni") { psnStav?.text = t("psnOveruji"); psnQrText = t("psnOveruji") }
+                else if (telefon && obrazovka == "pripojeni") psnRevize++ // jen přepočítat, ať se nesmaže PIN
                 else if (obrazovka in listOf("psn", "psnqr", "pripojeni")) ukazPripojeni(ukoncitPrihlaseni = false)
             }
         }
@@ -1603,6 +1671,19 @@ class MainActivity : Activity() {
         server = stranka.also { it.spust() }
         val host = if (telefon) "127.0.0.1" else PrihlaseniTelefonem.mojeIp(this) ?: "?"
         val adresa = "http://$host:${PrihlaseniTelefonem.PORT}${stranka.cesta}"
+        if (telefon) {
+            psnQrText = t("qrCekam")
+            setContent {
+                PlayCaperTema {
+                    PrihlaseniQrObrazovka(
+                        t = ::t, stav = psnQrText, naZpet = { ukazPripojeni() },
+                        naOtevrit = { runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(adresa))) } },
+                        naProhlizec = { ukazPsn() },
+                    )
+                }
+            }
+            return
+        }
 
         val sloupec = svisle()
         sloupec.addView(text(t("qrNadpis"), 28f, Color.WHITE, tucne = true), odsazeni(bottom = 12))
@@ -1958,6 +2039,105 @@ class MainActivity : Activity() {
             addView(ram)
         })
     }
+
+    // ------------------------------------------------------------------ telefon: Compose (Material 3)
+
+    /** Odkud se otevřel výběr jazyka (z Nastavení se po něm vracíme tam). */
+    private var jazykZNastaveni = false
+    private var nalezenaTv by androidx.compose.runtime.mutableStateOf(false)
+
+    /** Překreslí hlavní obrazovku, nebo Nastavení. */
+    private fun obnovAktualni(nastaveni: Boolean) { if (nastaveni) ukazNastaveni() else ukazHlavni() }
+
+    /** Domů (telefon): stav, konzole, tlačítko Hrát. */
+    private fun ukazHlavniTelefon() {
+        ui.removeCallbacks(obnova)
+        nalezenaTv = false
+        val umiPrevzit = !TvProfily(this).platforma.jenZobrazovac
+        // nespárovaný telefon a v síti je televize s PlayCaption → přihlašování schovat, ať nikdo neklikne špatně
+        if (umiPrevzit && !udaje.sparovano) Propojeni.hledej(this, 2500) { nalez ->
+            ui.post {
+                // jen spárovaná televize umí telefonu předat spárování; nespárovaná jen ukazuje titulky
+                if (nalez.any { it.sparovano == true } && obrazovka == "hlavni" && !isFinishing) nalezenaTv = true
+            }
+        }
+        setContent {
+            PlayCaperTema {
+                TelefonKostra(0, ::t, naDomu = {}, naNastaveni = { ukazNastaveni() }) {
+                    DomuObrazovka(
+                        t = ::t, nazevAplikace = getString(R.string.app_name), verze = "BETA $verze",
+                        stavNactiti = { spocitejStav() }, nalezenaTv = nalezenaTv, umiPrevzit = umiPrevzit,
+                        naLogo = { Zaznam.ukaz(this) }, naLogoDlouze = { Zaznam.ukaz(this, sVyvojem = true) },
+                        naPs = { ukazPripojeni() }, naXbox = { ukazPripojeniXbox() },
+                        naPrevzit = { prevzitSparovaniZTv() }, naPrepnout = { prepniKonzoli() },
+                        naHrat = { if (nejakaKonzole) startActivity(Intent(this, TelefonActivity::class.java)) else ukazPripojeni() },
+                    )
+                }
+            }
+        }
+    }
+
+    /** Stránka Nastavení (telefon): jazyk a klíče DeepL, výstup titulků, co překládat. */
+    private fun ukazNastaveni() {
+        if (!telefon) { ukazHlavni(); return }
+        zastavServer()
+        ui.removeCallbacks(obnova)
+        obrazovka = "nastaveni"
+        nast.napovedy = false // menu a nápovědy se nepřekládají samy – žlutý rámeček při hraní
+        val j = Texty.JAZYKY.firstOrNull { it.kod == jazyk } ?: Texty.JAZYKY[0]
+        setContent {
+            PlayCaperTema {
+                TelefonKostra(1, ::t, naDomu = { ukazHlavni() }, naNastaveni = {}) {
+                    NastaveniObrazovka(
+                        t = ::t, jazykNazev = "${j.vlajka}  ${j.nazev}",
+                        deeplPruh = { DeeplLimit.pruh(it, 13f, Color.GRAY) },
+                        tv = { tvKarta() }, lgStav = { lgStavView() },
+                        dialogy = nast.dialogy, naDialogy = { nast.dialogy = it },
+                        naJazyk = { jazykZNastaveni = true; ukazJazyk() },
+                        naDeepl = { zadejDeeplKlic() }, naVystup = { vyberVystupTv() },
+                    )
+                }
+            }
+        }
+    }
+
+    /** Karta „Titulky“: kam telefon posílá překlad (televize / jen tento telefon). */
+    private fun tvKarta(): TvKarta {
+        val profily = TvProfily(this)
+        val posila = Propojeni.Vysilac.cilIp != null
+        val profil = (if (posila) TvProfily.aktivniId else profily.posledniId)?.let { profily.najdi(it) }
+        val lokalni = !posila && profily.pouzeTelefon
+        val nazev = when {
+            posila -> Propojeni.Vysilac.cilJmeno.ifBlank { profil?.jmeno ?: t("tvZadnaVybrana") }
+            lokalni -> t("tvJenZarizeni")
+            else -> profil?.jmeno ?: t("tvZadnaVybrana")
+        }.let(::bezIdTv)
+        val platforma = if (lokalni || profil == null) t("tvNastaveniPopis") else when (profil.platforma) {
+            TvPlatforma.WEBOS -> "LG webOS"
+            TvPlatforma.SAMSUNG -> "Samsung (Tizen)"
+            TvPlatforma.ANDROID_TV -> "Android TV / Google TV"
+            else -> t("tvPlatformaNeznama")
+        }
+        val stav = when {
+            posila -> Texty.prenos(nast.jazykNeboCs, Propojeni.Vysilac.stavPrenosu)
+            lokalni -> t("tvJenZde")
+            profil != null -> "" // vybraná TV bez přenosu – obecná věta navíc nic neříká
+            else -> t("tvVyberVystup")
+        }
+        val ton = when {
+            !posila -> TonTv.NEUTRALNI
+            Propojeni.Vysilac.stavPrenosu.chyba != null -> TonTv.CHYBA
+            else -> TonTv.PRENOS
+        }
+        return TvKarta(nazev, platforma, stav, ton)
+    }
+
+    /** Stav instalace přijímače na LG (Developer Mode), vykreslený starou komponentou. */
+    private fun lgStavView(): View = LgDevModeView(this) {
+        val p = TvProfily(this)
+        if (p.pouzeTelefon && Propojeni.Vysilac.cilIp == null) null
+        else (if (Propojeni.Vysilac.cilIp != null) TvProfily.aktivniId else p.posledniId)?.let { p.najdi(it) }
+    }.apply { textSize = 13f * SKALA }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // tlačítko Menu na ovladači → vývojářská obrazovka

@@ -32,6 +32,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    buildFeatures { compose = true }
+    // Kotlin 1.9.24 ↔ Compose compiler 1.5.14
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 }
 
 dependencies {
@@ -41,6 +44,11 @@ dependencies {
     testImplementation("org.json:json:20240303")
     implementation("com.github.mwiede:jsch:2.28.8")
     implementation("androidx.core:core-ktx:1.13.1")
+    // Telefon/tablet: Jetpack Compose + Material 3 (dynamické barvy Material You)
+    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.activity:activity-compose:1.9.0")
     // Překlad přímo v televizi – zdarma, bez limitu (Google ML Kit)
     implementation("com.google.mlkit:translate:17.0.3")
     // Čtení textu z obrazu – zdarma, v televizi, bez stahování (Google ML Kit)

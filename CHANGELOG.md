@@ -6,6 +6,8 @@ Při každé nové verzi se zvýší číslo v `app/build.gradle.kts` (versionCo
 
 ## Nevydané změny
 
+- Telefon/tablet: první část přechodu na Jetpack Compose s Material 3 a dynamickými barvami (Material You). Hlavní obrazovka (Domů), nová stránka Nastavení (jazyk + klíče DeepL, výstup titulků, Co překládat), výběr jazyka a spodní `NavigationBar` jsou v Compose (`TelefonUi.kt`); `MainActivity` je teď `ComponentActivity`. Obrazovky „Připojit ke konzoli“ pro PS5 (účet, hledání PS5, PIN) a přihlášení přes QR/prohlížeč jsou také v Compose (`TelefonPripojeni.kt`); PIN a stav párování se při změně přihlášení už nemažou. Texty na stránce přepsány srozumitelněji (úvod, kroky s nadpisem a krátkým popisem; nové klíče `pp*` v `Texty.kt`, jen čeština a slovenština). Ostatní telefonní obrazovky (Xbox, `TelefonActivity`, dialogy) zatím zůstávají ve Views. Televize se nemění. Nové závislosti: Compose BOM 2024.06.00, `material3`, `activity-compose`. Testy prošly, vzhled ověřen na emulátoru, fyzické zařízení zatím ne.
+- Stránka „Připojit ke konzoli“ (PS5) zkrácena: odstraněn blok „Máš PlayCaption na Android TV / Google TV?“ s tlačítkem převzetí (zůstává na hlavní obrazovce), jeden stručný úvod s druhým uživatelem, kratší popisy kroků 1–3 a logo PlayStation (`ic_playstation.xml`) v kroku 1. Kompilace prošla, vzhled na zařízení neověřen.
 - Výběr jazyka: nativní přepínače (`RadioGroup`) a tlačítko, ukazují se jen jazyky, které jdou vybrat (čeština, slovenština).
 - Odstraněno logo PlayCaption z úvodu a z nadpisů obrazovek; tam, kde logo sloužilo jako tlačítko diagnostického záznamu, je teď text „PlayCaper“.
 - Odstraněna uvítací obrazovka „Ahoj a vítej v PlayCaption!“ (po výběru jazyka se rovnou ukáže hlavní obrazovka).
