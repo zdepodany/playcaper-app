@@ -87,7 +87,7 @@ Stav: návrh pro pozdější fázi, ne důvod k přepisu aplikace nyní.
   odlišit opožděné UDP pakety od restartu aplikace na stejném zařízení.
 - Návrhy posoudit až po PC-001; mohou již částečně existovat v Android kódu.
 
-## PC-003 – Instalace LG přijímače přímo z Android PlayCaption
+## PC-010 – Instalace LG přijímače přímo z Android PlayCaption
 
 Implementováno v `feature/tv-platform-management`: místní instalace přibaleného
 IPK, společné šifrované spárování, kontrola skutečné verze před přenosem, aktualizace
@@ -184,3 +184,57 @@ Cíl je méně online překladů, hlavně šetřit měsíční limit DeepL.
   - překlad dokončený po přepnutí jazyka se do paměti neukládá.
 - Zbývá: po pár hodinách hraní spočítat ze záznamu podíl `paměť` vs. `deepl`
   a zkontrolovat, že sjednocení neslučuje věty s jiným významem.
+
+## PC-009 – PlayCaper pro Mac (snímání okna Remote Play)
+
+Stav: nápad k diskusi 25. 11. 2026, nic neimplementováno.
+Autor forku má iPhone a Mac, kamarád Android. Verze pro iPhone by znamenala
+přepsat Chiaki/Remote Play a narazit na omezení iOS (broadcast `PLAYCAPTION_TV`
+jen s entitlementem pro multicast, uspávání na pozadí, podpis na 7 dní, AGPL
+vs. App Store). Mac tato omezení nemá.
+
+### Princip
+
+- Neimplementovat vlastního klienta Remote Play. Snímat okno oficiálního
+  PS Remote Play nebo chiaki-ng přes ScreenCaptureKit (jen výřez titulků).
+- OCR přes Apple Vision, překlad DeepL/Google jako na Androidu, výstup do okna
+  na Macu nebo po UDP do stávajících přijímačů LG/Samsung. Protokol ani
+  přijímače se nemění.
+- Odpadá `RemotePlayService.kt`, JNI, nativní knihovny i přihlašování k PSN.
+- Výkon: Android jede pevně v 720p/30 fps s OCR každých 100 ms
+  (`INTERVAL_MS`) bez přizpůsobení zařízení. Apple Silicon by unesl vyšší
+  rozlišení i frekvenci; to je odhad, ne měření.
+
+### Otevřené otázky
+
+1. Jde zachytit okno Remote Play, když je schované za jiným oknem,
+   minimalizované nebo na jiné ploše? Ověřit prototypem jako první.
+2. Sdílená logika (`StabilitaTextu`, `SkladaniVet`, `CteciFronta`,
+   `CasovaniPribehu`, `Volby`, kódování paketů z `Propojeni`): Kotlin
+   Multiplatform, nebo přepis do Swiftu a údržba dvakrát?
+3. Distribuce pro sebe: vlastní build stačí. Pro další lidi podpis/notarizace.
+
+### Nápady na vylepšení (QOL), které Mac umožní
+
+- Výběr okna Remote Play ze seznamu a automatické nalezení po spuštění.
+- Oblast čtení tažením myší nad živým náhledem okna, víc oblastí najednou.
+- Plovoucí průhledné okno titulků vždy nahoře, propouštějící kliknutí: přes
+  okno Remote Play nebo na druhém monitoru. Stav a ovládání v menu baru.
+- Globální klávesové zkratky: pauza, znovu přeložit, ukázat anglický originál,
+  kopírovat poslední titulek.
+- Historie titulků (EN + CZ vedle sebe) s hledáním a exportem; možnost vrátit
+  se k přeskočenému dialogu.
+- Úprava paměti překladů (PC-008) v UI: opravit špatný překlad, uloží se.
+- Glosář pro hru: jména postav a míst se nepřekládají (nebo pevný překlad);
+  stejná slova jako vlastní slovník pro Vision (`customWords`).
+- Ladicí panel: živý výřez, výsledek OCR, časy čtení/překladu, zdroj
+  překladu. Ukládání vzorků do korpusu pro `tools/ocr` (OCR benchmark).
+- Předčítání českých titulků (AVSpeechSynthesizer, český hlas).
+- DeepL klíče v Klíčence.
+- Instalace a aktualizace přijímačů LG/Samsung z Macu (SSH, stávající
+  `webos/build.py` a `tizen/build.py`).
+
+### První krok
+
+Prototyp na jeden večer: ScreenCaptureKit + Vision nad oknem PS Remote Play
+s titulky ze hry. Změřit čas čtení a kvalitu OCR, ověřit otázku 1.
