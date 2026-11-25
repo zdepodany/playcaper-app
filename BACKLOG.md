@@ -238,3 +238,62 @@ vs. App Store). Mac tato omezení nemá.
 
 Prototyp na jeden večer: ScreenCaptureKit + Vision nad oknem PS Remote Play
 s titulky ze hry. Změřit čas čtení a kvalitu OCR, ověřit otázku 1.
+
+## PC-011 – Sady překladů pro hry
+
+Stav: nápad 25. 11. 2026, nic neimplementováno. Navazuje na PC-008.
+
+### Cíl
+
+Paměť překladů (`PametPrekladu.kt`) je dnes uložená zvlášť na každém zařízení.
+Dva hráči stejné hry tak za stejné věty čerpají DeepL kvótu dvakrát. Sada
+překladů je paměť jedné hry, kterou jde exportovat, sdílet a importovat,
+včetně ručních oprav a glosáře jmen.
+
+### Jak se věta najde (stávající mechanismus)
+
+- Klíč je sjednocený anglický text (`PametPrekladu.klic`): malá písmena, bez
+  diakritiky, uvozovek a běžné interpunkce, otazník zůstává. Hledá se přesná
+  shoda klíče.
+- Jméno mluvčího („Arthur: …“) se před překladem odřízne
+  (`RemotePlayService.prelozVse`), klíčem je jen replika.
+- Překlep OCR v jediném písmenu dává jiný klíč, takže věta se nenajde a
+  přeloží se online. Chyba nevznikne, jen to stojí kvótu.
+
+### Návrh
+
+- Pořadí hledání: ruční opravy → sada zvolené hry → osobní paměť → online.
+- Hru vybírá uživatel ručně. Automatické rozpoznání hry z PS5 zatím neřešit.
+- Formát souboru: hra, zdrojový a cílový jazyk, verze klíče a položky
+  `[anglický originál, klíč, překlad, zdroj (deepl/google/mlkit/ručně)]`.
+  Ukládat i původní anglický text, aby šlo klíče po změně `klic()` přepočítat
+  (dnešní soubor PC-008 ukládá jen klíč).
+- Sada nemá limit 5000 vět (LRU). Celá hra může mít desítky tisíc replik.
+- Ručně opravený překlad se nikdy automaticky nepřepíše.
+- Glosář hry (jména postav a míst a jejich pevný překlad nebo zákaz překladu)
+  nahradí natvrdo zapsaný `CHYBNA_JMENA` v `RemotePlayService.kt`.
+- Při importu se položky slučují: ruční vyhrává, jinak zůstane stávající.
+- Sdílení: export/import souboru (Android sdílení, sdílená složka, git).
+  Server ani další hardware nejsou potřeba. Stejný formát pro budoucí
+  desktopovou verzi (PC-009).
+
+### Rizika a otevřené otázky
+
+- **Rod mluvčího.** „I'm ready.“ je podle postavy „Jsem připraven/a“. Klíč
+  mluvčího neobsahuje, takže první uložený překlad platí pro všechny postavy.
+  Zvážit volitelný klíč „mluvčí + věta“ s náhradou na samotnou větu.
+- **Bloky vs. věty.** Příběhový režim (`SkladaniVet`) překládá spojené repliky.
+  Klíč celého bloku se při jiném rozdělení OCR nenajde. Změřit, jak často
+  se v sadě trefí blok a jak často jednotlivá věta.
+- **Přibližná shoda** (odchylka 1–2 znaky u dlouhých vět) by pokryla chyby
+  OCR. U krátkých vět je nebezpečná („I can.“ × „I can't.“). Pokud vůbec, tak
+  až po změření, kolik zásahů se kvůli OCR ztrácí.
+- **Autorská práva.** Sada obsahuje velkou část scénáře hry. Sdílení mezi
+  pár hráči je něco jiného než veřejné repo se scénáři celých her.
+- **Přeložit dopředu celý scénář** (z cizího zdroje) by vyčerpalo DeepL
+  kvótu (scénář má miliony znaků). Sada vzniká hraním, ne hromadným překladem.
+
+### První krok
+
+Do záznamu doplnit počty zásahů paměti vs. online překladů na jedno hraní
+(PC-008 to má jako zbývající bod). Bez čísel nejde odhadnout přínos sdílení.
