@@ -57,7 +57,7 @@ class SamsungPrijimacTest {
         assertEquals(SamsungPruvodceStav.POSLEDNI, skip.krok)
     }
     @Test fun platformyPrijimacu() {
-        // Uložené profily se čtou podle jména (dřívější ANDROID_TV se načte jako NEZNAMA).
+        // Uložené profily se čtou podle jména (neznámé jméno platformy se načte jako NEZNAMA).
         assertEquals(listOf("NEZNAMA", "WEBOS", "SAMSUNG"), TvPlatforma.values().map { it.name })
     }
 }

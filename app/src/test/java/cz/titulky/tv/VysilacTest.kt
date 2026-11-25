@@ -106,11 +106,11 @@ class VysilacTest {
         }
     }
 
-    @Test fun storyPozadovaneProAndroidTvOdeslePct1IVolby() {
+    @Test fun storyPozadovaneBezPotvrzeniOdeslePct1IVolby() {
         DatagramSocket(Propojeni.PORT_TITULKY, InetAddress.getByName("127.0.0.1")).use { tv ->
             tv.soTimeout = 100
             try {
-                Propojeni.Vysilac.nastavCil("127.0.0.1", "Android TV")
+                Propojeni.Vysilac.nastavCil("127.0.0.1", "TV")
                 val pozadovanyPribeh = true
                 Propojeni.Vysilac.pribehRidi = pozadovanyPribeh &&
                     PodporaPribehu.pouzit("127.0.0.1", null)
@@ -123,7 +123,7 @@ class VysilacTest {
                     try { tv.receive(p); pakety += String(p.data, 0, p.length, Charsets.UTF_8) }
                     catch (_: SocketTimeoutException) {}
                 }
-                assertTrue("Story nesmí vypnout standardní výstup na Android TV", pakety.any {
+                assertTrue("Story nesmí vypnout standardní výstup na TV bez potvrzení", pakety.any {
                     it.startsWith("PCT1\t") && it.split('\t')[3] == "Celý český titulek."
                 })
                 assertTrue(pakety.any { it.startsWith("PCV1\t") && "První odpověď" in it })

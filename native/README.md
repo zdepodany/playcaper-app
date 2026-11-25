@@ -22,7 +22,7 @@ v disassemblování původních ARM knihoven v repozitáři, ne jen v upstream z
 streamu. Callback nastavení neotevírá Oboe/AAudio/OpenSL ES přehrávací stream
 a callback PCM data zahazuje místo plnění přehrávací fronty. Příjem zvuku,
 dekódování, uvolňování výstupních bufferů, EOS i oprava mutexu zůstávají zachované.
-Platí pro telefon i Android TV; žádný systémový mixer, hlasitost ani HDMI výstup
+Žádný systémový mixer, hlasitost ani HDMI výstup
 se nenastavuje. Nevzniká nový uživatelský přepínač a Xbox se nemění.
 
 Původní TCL report zaznamenal 20/21 dokončených ukončení; poslední viselo

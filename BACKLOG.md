@@ -107,11 +107,10 @@ před uloženou; vypnutá poslední TV se automaticky nenahradí jinou.
 
 Kontroly: `bash gradlew :app:testDebugUnitTest :app:assembleDebug` – pět testů
 profilů a test skutečného UDP přenosu na loopbacku. Ruční přejímka: dvě fyzické
-TV s odlišným nastavením, návrat na telefon a zpět, restart aplikace, původní
-Android TV režim. Uživatel na Redmi Pad Pro potvrdil nalezení a výběr C5.
+TV s odlišným nastavením, návrat na telefon a zpět, restart aplikace.
+Uživatel na Redmi Pad Pro potvrdil nalezení a výběr C5.
 Karta výstupu byla po opravě výšky/odsazení vizuálně zkontrolovaná na tabletu:
 rozlišuje vybranou TV od aktivního odesílání. Nepředstírá potvrzení příjmu UDP.
-Původní Android TV hardware dosud touto etapou nepřetestován.
 Vlastní LG instalátor a přibalený IPK jsou implementované; aktuální přejímka je v `webos/TESTOVANI.md`.
 
 ## PC-005 – Průvodce přípravou LG
@@ -297,3 +296,58 @@ včetně ručních oprav a glosáře jmen.
 
 Do záznamu doplnit počty zásahů paměti vs. online překladů na jedno hraní
 (PC-008 to má jako zbývající bod). Bez čísel nejde odhadnout přínos sdílení.
+
+## PC-012 – Zrychlení cesty titulek → překlad → TV
+
+Stav: rozbor kódu 25. 11. 2026, nic neimplementováno. Souvisí s PC-003
+(snímky a OCR) a PC-011 (sady překladů). Pořadí příčin je odhad z kódu,
+ne měření.
+
+### Kde se ztrácí čas
+
+1. **Čekání na potvrzení textu před překladem** (`RemotePlayService.kt`):
+   200 ms na „vynořování“, druhé OCR pro zkrácený/dopisovaný text
+   (`StabilitaTextu.prijmi`), až 2 čtení navíc při nejistém slově a až 4 při
+   malém písmenu na začátku. Čtečka je jediná (`ctecky = listOf(Ctecka())`),
+   takže se každé čtení navíc sčítá.
+2. **Online překlad postupně.** `Prekladac.preloz` běží na jednom vlákně
+   (`newSingleThreadExecutor`) a služby zkouší jednu po druhé. Nedostupná
+   služba stojí timeouty 1,5 s + 2–3 s (Google 2 pokusy), než přijde další.
+3. **Fronta nezahazuje staré věty.** `PlatnostPrekladu` zahodí jen výsledek;
+   pomalý překlad staré věty zdrží novou.
+4. **Více replik v titulku** (`prelozVse`) jde sériově, jedna replika = jeden
+   požadavek.
+5. Přenos UDP do TV (jednotky ms, 2× po 60 ms) a vykreslení v přijímači
+   (bez animací) nejsou úzké hrdlo. Zpoždění samotného Remote Play
+   (720p/30 fps, dekodér) aplikace prakticky neovlivní.
+
+### Návrhy (podle poměru přínos/práce)
+
+- **A – měření fází.** Do záznamu pro každý titulek: první vidění →
+  potvrzení → odeslání požadavku → odpověď → UDP. Dnešní řádek „čtení X ms,
+  překlad Y ms“ nezahrnuje čekání na potvrzení. Udělat jako první.
+- **B – fronta „poslední vyhrává“.** Držet jen nejnovější čekající větu,
+  zastaralé zahodit před odesláním.
+- **C – souběh služeb (hedging).** Když první služba neodpoví do
+  ~400–600 ms, spustit paralelně další a vzít první platnou odpověď.
+  Riziko: víc volání, čerpání kvóty DeepL, dřívější blokace Googlu.
+- **D – spekulativní překlad.** Přeložit už první OCR a souběžně čekat na
+  potvrzení; při shodě je výsledek hotový. Omezit na věty, které vypadají
+  úplně (velké písmeno, koncová interpunkce), kvůli kvótě.
+- **E – dávka replik.** DeepL umí víc `text`, Google víc `q` v jednom
+  požadavku.
+- **F – druhá čtečka (pipelining OCR).** Pole `obsazeno[]` už počítá s víc
+  čtečkami. Riziko: CPU a teplo telefonu.
+- **G – sady překladů** (PC-011): zásah v paměti = ~0 ms.
+- **H – udržovaná spojení** (keep-alive/HTTP/2 pro všechny služby, ne jen
+  ping na Google). Ušetří nové TLS spojení.
+
+Rychlý náhled z ML Kitu (`RYCHLY_NAHLED = true`) už existuje; okamžitou
+odezvu řeší za cenu přepnutí z horšího překladu na lepší.
+
+### První krok
+
+A + B + C: malé, jen Android, testovatelné JVM testy, beze změny protokolu
+a přijímačů. Podle měření z A rozhodnout o D a ladění odkladů OCR. Odklady
+jsou nejcitlivější místo (riziko překladu useknutých vět, viz PC-001) a
+vyžadují ověření při hraní.

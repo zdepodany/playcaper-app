@@ -167,7 +167,7 @@ function spusti() {
         var teraz = Date.now();
         if (!paket) {
             // Telefón chce prevziať prihlásenie ku konzole z televízie. Samsung žiadne nemá,
-            // odpovie preto rovnako ako nespárovaná Android TV a telefón sa prihlási sám.
+            // odpovie preto „nespárované“ a telefón sa prihlási sám.
             if (bajty.length <= 512 && bajty.toString("utf8").indexOf("PCS1\t") === 0) {
                 pocty.prevzatia++;
                 zaznam("Žiadosť o prevzatie prihlásenia z " + odkial.address + ", odpovedám: nespárované");

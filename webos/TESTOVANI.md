@@ -18,10 +18,10 @@
   ověřil celý odstavec v reálném `PCV1` UDP paketu na loopbacku; překlad nahradila
   pevná česká odpověď, nejde o měření kvality Google překladu.
 - Tablet ani Android emulátor nebyl dostupný. Nelze tím potvrdit původní scénu
-  Alan Wake 2, výkon na Android TV ani chování na měnícím se pozadí. Při další
+  Alan Wake 2 ani chování na měnícím se pozadí. Při další
   herní přejímce použít postup a nové diagnostické počty řádků z `BACKLOG.md` PC-001.
 
-## Přihlášení PSN v telefonu a zachování QR Android TV – 16. 11. 2026
+## Přihlášení PSN v telefonu – 16. 11. 2026
 
 - Samostatná větev `codex/psn-login-confirmation` z `origin/master` (`bc5237d`).
   Neobsahuje samostatnou opravu PC-001; nemění LG/Samsung protokol ani přijímače.
@@ -36,14 +36,12 @@
   aplikace na párování, aby se výsledek mohl zobrazit také v prohlížeči.
 - Prošlo 206 JVM testů, včetně 17 nových pro přihlášení. Síťové testy použily
   skutečné HTTP sockety na loopbacku i místní IPv4 adrese: čekání, úspěch,
-  trvalá chyba, nový kód po odmítnutí, neplatný vstup, obsazený port a odlišné
-  potvrzení „v televizi“ pro QR cestu. Odpovědi Sony i zápis účtu jsou v JVM
+  trvalá chyba, nový kód po odmítnutí, neplatný vstup, obsazený port.
+  Odpovědi Sony i zápis účtu jsou v JVM
   testech nahrazené; testy se ke skutečnému PSN nepřihlašují.
 - Příkaz `bash gradlew :app:testDebugUnitTest :app:assembleDebug
   :app:assembleDebugAndroidTest` sestavil aplikaci i instrumentační APK.
-  `PsnQrTest` dekóduje QR bitmapu zpět na původní adresu Android TV; bez
-  připojeného zařízení byl pouze sestaven, nikoli spuštěn. Živé přihlášení
-  Sony, kamera telefonu a ovládání skutečné Android TV ještě vyžadují přejímku.
+  Živé přihlášení Sony ještě vyžaduje přejímku.
 
 ## Krátké dialogy ve verzi 0.0.7 – 15. 11. 2026
 
@@ -321,8 +319,7 @@ na pozadí či simulování expirování skutečné TV. Další fyzická LG nen�
 Nové větve chybějící/starší/novější verze jsou pokryté rozhodovacími testy;
 na C5 se v této poslední změně záměrně neměnila verze ani neodinstalovával přijímač.
 Dřívější skutečná instalace/aktualizace z Androidu je popsaná výše u test06.
-Další fyzická LG, všechny výpadky sítě a původní Android TV hardware touto etapou
-nebyly znovu přetestované. Žádné automatické prodlužování Developer Mode.
+Další fyzická LG a všechny výpadky sítě touto etapou nebyly znovu přetestované. Žádné automatické prodlužování Developer Mode.
 
 ## Integrace Story se správou LG (0.2.0)
 
@@ -343,15 +340,15 @@ stránkuje aktuální repliku a potvrzuje její dočtení.
 
 ## LG 0.2.3 – vyhledání a start přijímače (2026-11-16)
 
-- `:app:testDebugUnitTest :app:assembleDebug`: testy identity/platformy a zachování
-  Android TV převzetí, skutečné UDP dotazy na známé LG, chybný/chybějící nonce,
+- `:app:testDebugUnitTest :app:assembleDebug`: testy identity/platformy,
+  skutečné UDP dotazy na známé LG, chybný/chybějící nonce,
   jiná identita, neodpovídající TV, původní Android broadcast a souběžné hledání.
 - `python3 webos/build.py`: pozdější připojení sítě, změna IP, přímá odpověď,
   opožděný bind/error starého socketu, timeout startu a návrat do připraveného stavu;
   zůstávají testy Standardního režimu, Story, ovladače a přepnutí HDMI.
 - Fyzická C5, SDK 11.2.0: instalace 0.2.3, přímé discovery se shodou ID/nonce,
   původní broadcast se stejným ID a dvě opětovná spuštění přijímače s odpovědí.
-- Neověřeno: problémová B4, fyzická Android TV, vizuální titulky při hraní a
+- Neověřeno: problémová B4, vizuální titulky při hraní a
   skutečné odpojení/obnovení domácí sítě. Simulace není důkaz příčiny hlášené B4.
 - Přímý dotaz je doplněk: nová TV nebo TV s jinou IP musí být nejdřív nalezena
   broadcastem. Neobchází se izolace klientů ani síťová pravidla routeru.
@@ -361,8 +358,8 @@ stránkuje aktuální repliku a potvrzuje její dočtení.
 
 Větev `codex/lg-screen-off` ruší minutové ukončení pouze pro aktivní LG výstup
 s konkrétní IP a profilem webOS. CPU zámek vlastní RemotePlayService; změna
-výstupu, zastavení spojení i zánik služby ho uvolňují. Původní Android TV,
-Samsung, místní výstup a neznámá platforma mají původní pravidla.
+výstupu, zastavení spojení i zánik služby ho uvolňují. Samsung,
+místní výstup a neznámá platforma mají původní pravidla.
 
 JVM `TelefonPozadiTest` ověřuje rozhodnutí pro LG, ostatní platformy a změnu
 výstupu/stavu. Neověřuje skutečné chování Android napájení.
@@ -372,7 +369,7 @@ Fyzická přejímka zatím neproběhla (tablet není dostupný). Při nejbližš
 1. Připojit konzoli a vybrat LG; ověřit pohyb snímků, OCR a titulky na TV.
 2. Ručně zamknout Android zařízení na alespoň dvě minuty. Ze záznamu ověřit,
    že snímky/OCR i odesílání pokračují; samostatně Standardní a Story.
-3. Odemknout, změnit výstup na místní/Android TV a ověřit původní předávání.
+3. Odemknout, změnit výstup na místní a ověřit původní předávání.
 4. Po Zastavit ověřit v `adb shell dumpsys power`, že nezůstává zámek
    `playcaption:lg-stream`. Prověřit i ukončení služby a opětovné připojení.
 

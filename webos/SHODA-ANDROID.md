@@ -41,11 +41,11 @@ pixelovou kopií Androidu. LG dialogy stránkuje po dvou řádcích s limitem v�
 
 ## Odlišnosti zapojení a platformy
 
-- Přihlašovací `PCS1` z původního protokolu přenáší přihlášení z Android TV do telefonu. LG údaje konzole neuchovává,
+- Přihlašovací `PCS1` z původního protokolu přenáší přihlášení z TV do telefonu. LG údaje konzole neuchovává,
   proto přenos neposkytuje a discovery hlásí nespárovanou konzoli. Účet i párování
   se nastavují na Android zařízení; LG netvrdí, že má údaje, které může předat.
-- Android TV režim „Jen televize“ s vlastním Remote Play a OCR není součástí LG
-  přijímače. Přímé čtení HDMI na LG bez rootu nemáme potvrzené.
+- Vlastní Remote Play a OCR přímo v televizi není součástí LG přijímače.
+  Přímé čtení HDMI na LG bez rootu nemáme potvrzené.
 - HDMI se vybírá uvnitř PlayCaption. Systémová změna aplikace/vstupu může překryv
   zavřít; sledování popředí přes `getForegroundAppInfo` testovaná TV odmítla.
 - Potvrzená sestava: C5 + Redmi Pad Pro + PS5. Další LG modely, Xbox, dlouhý běh

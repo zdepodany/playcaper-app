@@ -237,7 +237,7 @@ návrh a přejímku, nelze ho vydávat za součást opravy ukončení.
 
 Dodané podklady zachycují různé situace:
 
-- Hlášení Android TV „Připojeno, ale nechodí žádný obraz“ znamená, že aktuální
+- Hlášení „Připojeno, ale nechodí žádný obraz“ znamená, že aktuální
   relace ještě nemá snímky. Bez stacku nelze určit, zda je příčinou stará relace,
   síť nebo cesta dekódování.
 - Dodaný textový log obsahuje přečtené anglické repliky a 898 snímků od startu

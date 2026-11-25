@@ -111,9 +111,7 @@ Názvy ovládacích prvků Dev Manageru se mohou mezi verzemi mírně lišit.
 7. Při dalším textu ve hře se mají české titulky zobrazit i přes HDMI obraz na LG.
    Poloha, šířka a velikost odpovídají nastavení zeleného boxu na Android zařízení.
 
-**Tlačítko Vyhledat televizi v úvodním nastavení Android aplikace je jiná funkce:**
-přebírá přihlášení z Android TV. Pro LG nepoužívej tento postup ani volbu
-**+ Přidat Android zařízení**. Přihlášení ke konzoli už máš v tabletu/telefonu.
+Přihlášení ke konzoli už máš v tabletu/telefonu.
 
 Android zařízení nech odemčené s otevřeným PlayCaption, ideálně na nabíječce.
 Toto doporučení platí pro dosud ověřené hraní. Oprava minutového ukončení při

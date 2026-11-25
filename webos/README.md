@@ -54,8 +54,7 @@ přijme jen při shodě IP, uloženého ID a dotazu; bez odpovědi TV nezpříst
 Starší LG přímý dotaz ignorují a fungují dále přes broadcast. První nalezení nové
 TV nebo TV s novou IP stále vyžaduje průchod broadcastu v místní síti.
 
-LG přihlášení ke konzoli nepředává: vybírá se ve **Výstupu titulků**. Tlačítko
-**Převzít připojení z Android TV** je určeno pro původní Android TV postup.
+LG přihlášení ke konzoli nepředává: vybírá se ve **Výstupu titulků**.
 Při čekání na službu přes 10 s LG ukáže chybu startu; chybějící síť hlásí zvlášť.
 
 ## Sestavení

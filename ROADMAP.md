@@ -113,7 +113,7 @@ Stavy: čeká / probíhá / dokončeno / blokováno. Dokončení úkolu není d�
 - `TelefonActivity` má skutečná tlačítka Standardní/Příběhový, Standardní výchozí; délka zobrazení 50–200 % po 5 %, výchozí 100 % kratšího základu. Reset nastavení/relace a pauza pro volby jsou zapojené. PCQ1/PCS1/PCA1 je samostatná potvrzovaná cesta; Standardní PCT1/PCV1/PCO1 zůstaly.
 - 101 JVM testů bez selhání; 5 LG sad a 3 instrumentační testy na tabletu. Přímý C5 test: celé tři stránky, žádné přetečení, ACK po dočtení, následně Standardní titulek a ignorování starého Story paketu.
 - Opravené první Android runtime selhání `NetworkOnMainThreadException`: otevření, obsluha i zrušení UDP běží na pracovním vlákně. Dva instrumentační testy na Redmi prošly se StrictMode a skutečným potvrzením od C5.
-- Na tabletu `PlayCaption Test 0.20.1-story-test03`, LG 0.0.9. Uživatel u předchozího story-test02 potvrdil, že po opětovném připojení PS5 chyba zmizela a titulky běží; komfort nového časování story-test03 ještě nepotvrdil. Zbývá podrobná herní přejímka úplnosti rychlých replik, návratu do Standardního režimu, skutečných dialogových voleb a dlouhodobých výpadků; přepínač v přímém Android TV režimu ani telefonní dvouřádkový stránkovač nejsou součást tohoto MVP.
+- Na tabletu `PlayCaption Test 0.20.1-story-test03`, LG 0.0.9. Uživatel u předchozího story-test02 potvrdil, že po opětovném připojení PS5 chyba zmizela a titulky běží; komfort nového časování story-test03 ještě nepotvrdil. Zbývá podrobná herní přejímka úplnosti rychlých replik, návratu do Standardního režimu, skutečných dialogových voleb a dlouhodobých výpadků; telefonní dvouřádkový stránkovač není součást tohoto MVP.
 
 ## P3 — pokročilé OCR pouze podle výsledků P1
 
@@ -206,5 +206,5 @@ Další regresní scénáře pokrývají pauzu, revize, pořadí callbacků a li
 Finální kontroly: 133 JVM testů, šest Node sad přijímače, osm Python testů
 OCR skórování, sestavení Android APK / instrumentačního APK a LG IPK.
 Nový přímý Windows build nebyl proveden. Telefonní dvouřádkový stránkovač,
-přepínač v samostatném Android TV režimu, dokončování vět a další OCR výzkum
+dokončování vět a další OCR výzkum
 zůstávají mimo přijatý rozsah MVP. PR slouží ke kontrole a sloučení, ne k vydání.

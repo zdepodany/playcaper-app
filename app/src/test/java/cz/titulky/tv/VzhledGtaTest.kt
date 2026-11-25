@@ -13,7 +13,7 @@ class VzhledGtaTest {
     }
 
     @Test
-    fun androidTvPrijimacZnackuOdstrani() {
+    fun prijimacZnackuOdstrani() {
         assertEquals("Jedeme", Propojeni.bezVzhledu("⁣Jedeme"))
         val token = "a".repeat(32) + ".1.0.0"
         val paket = PribehProtokol.titulek(token, Propojeni.sVzhledem("Jason: Pojď", gta = true), false,

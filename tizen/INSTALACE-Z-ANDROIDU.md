@@ -8,7 +8,7 @@ ale mechanizmus Samsungu je iný a z LG sa nič nepreberalo naslepo.
 
 | Princíp | Stav |
 | --- | --- |
-| Samostatná implementácia, ktorá neovplyvní LG ani Android TV | hotové: `Samsung*.kt`, vlastné nastavenia `samsung_pruvodce`, žiadny zásah do `Lg*.kt` |
+| Samostatná implementácia, ktorá neovplyvní LG | hotové: `Samsung*.kt`, vlastné nastavenia `samsung_pruvodce`, žiadny zásah do `Lg*.kt` |
 | Najprv zistiť skutočne nainštalovanú verziu | hotové pre bežiaci prijímač: verziu hlási sám v ohlásení (od 1.3.0) |
 | Rovnakú verziu nepreinštalovať, novšiu neprepísať staršou | hotové ako rozhodnutie v sprievodcovi (`SamsungStavVerze`), inštaláciu samotnú robí externý nástroj |
 | Úspech až po potvrdenej inštalácii a overení prijímača | hotové: úspech je iba ohlásenie prijímača z televízora, nie odoslanie súboru |
@@ -66,7 +66,7 @@ Zostavenie potrebuje iba Python 3.9+ a Node.js 20+, žiadne Tizen Studio.
   a sprievodca ich označí ako „verziu nehlási“, nikdy nie ako aktuálne.
 - Nájdené Samsung prijímače sa uložia ako profily s platformou Samsung. Výber televízora pri
   platforme Samsung ukazuje iba ID `samsung-…`, pri ostatných platformách ich skrýva. Správanie
-  pre LG a Android TV ID sa nezmenilo.
+  pre LG ID sa nezmenilo.
 
 ## Príbehový režim
 
