@@ -230,9 +230,31 @@ vs. App Store). Mac tato omezení nemá.
 
 1. **Hlavní riziko.** Jde zachytit okno Remote Play, když je schované za jiným
    oknem, minimalizované nebo na jiné ploše? Na okno se při hraní nikdo nedívá,
-   takže má být odklizené. Pokud to nejde, musí zůstat viditelné (např. na
-   druhém monitoru); se zavřeným víkem bez externího monitoru nejspíš vůbec.
-   Ověřit prototypem jako první.
+   takže má být odklizené.
+
+   **Ověřeno na zařízení 26. 11. 2026** (`macos/Prototyp`, M3, macOS 27.2,
+   oficiální PS Remote Play přihlášený druhým účtem, GTA VI, okno 960×568 bodů):
+
+   | stav okna | snímky | výsledek |
+   |---|---|---|
+   | viditelné | ~29/s | čte |
+   | překryté jiným oknem přes celou obrazovku | ~29/s | **čte** (dialogy živě) |
+   | aplikace skrytá (Cmd+H) | 0 | nečte |
+   | minimalizované do Docku | 0 | nečte |
+   | zhasnutý displej Macu | jen „beze změny“ | nečte (obraz zamrzne) |
+   | jiná plocha | – | neověřeno |
+
+   Závěr: okno může zůstat **za ostatními okny**, ale nesmí být skryté ani
+   minimalizované a displej nesmí zhasnout (aplikace bude držet
+   `IOPMAssertion` proti uspání displeje). Se zavřeným víkem bez externího
+   monitoru to fungovat nebude.
+
+   Další měření z prototypu: OCR Vision `accurate` na výřezu 1536×272 px
+   průměrně 42–58 ms, max ~100 ms; první volání v systému jednorázově 31 s
+   (příprava modelu). Dialogy chodců i víceřádkové titulky přečtené správně,
+   kolísá jen čárka/tečka (řeší stabilizace). Hlavní problém je šum z nápisů
+   ve scéně („JASON'S TATTOOS“, „CRASH OUT CARTEL“) – v MVP filtrovat
+   (barva/pozice titulků, užší oblast).
 2. Apple Translation framework: podporuje češtinu? Neověřeno, do té doby
    DeepL/Google jako na Androidu.
 
