@@ -6,8 +6,8 @@ var NAZOV_PORTU_SLUZBY = 'PLAYCAPTION_SLUZBA';
 
 var hdmi = [];
 var idx = 0;
-var hdmiText = 'HDMI sa spúšťa...';
-var prijemText = 'Spúšťam príjem titulkov...';
+var hdmiText = 'Spouštím HDMI…';
+var prijemText = 'Spouštím příjem titulků…';
 var prijemChyba = false;
 var nazovTv = '';
 var verziaTv = '';
@@ -57,12 +57,12 @@ function kresliLadenie(teraz) {
     }
     var p = stavSluzby && stavSluzby.pocty;
     var riadky = [
-        'LADENIE (OK = schovať)   beží ' + Math.round((teraz - start) / 1000) + ' s' + (verziaTv ? '   verzia ' + verziaTv : ''),
-        'Služba: ' + (stavSluzby ? stavSluzby.node + ', ozvala sa pred ' + pred(sluzbaVidena, teraz) : 'zatiaľ sa neozvala'),
-        'TV v sieti: ' + (stavSluzby && stavSluzby.adresy && stavSluzby.adresy.length ? stavSluzby.adresy.join(', ') : 'neznáme'),
-        'Ohlásenia: ' + (p ? p.ohlasenia : 0) + '   Telefón: ' + (poslednyZdroj || 'žiadny') + ', dáta pred ' + pred(dataVidene || posledneData, teraz),
-        'Prijaté: titulky ' + (p ? p.titulky : 0) + ', voľby ' + (p ? p.volby : 0) + ', oblasti ' + (p ? p.oblasti : 0) +
-            ', príbeh ' + (p && p.pribeh ? p.pribeh : 0) + ', neznáme ' + (p ? p.neplatne : 0) + ', prevzatia ' + (p ? p.prevzatia : 0) + ', cudzie ' + (p ? p.odmietnute : 0),
+        'LADĚNÍ (OK = schovat)   běží ' + Math.round((teraz - start) / 1000) + ' s' + (verziaTv ? '   verze ' + verziaTv : ''),
+        'Služba: ' + (stavSluzby ? stavSluzby.node + ', ozvala se před ' + pred(sluzbaVidena, teraz) : 'zatím se neozvala'),
+        'TV v síti: ' + (stavSluzby && stavSluzby.adresy && stavSluzby.adresy.length ? stavSluzby.adresy.join(', ') : 'neznámé'),
+        'Ohlášení: ' + (p ? p.ohlasenia : 0) + '   Odesílatel: ' + (poslednyZdroj || 'žádný') + ', data před ' + pred(dataVidene || posledneData, teraz),
+        'Přijato: titulky ' + (p ? p.titulky : 0) + ', volby ' + (p ? p.volby : 0) + ', oblasti ' + (p ? p.oblasti : 0) +
+            ', příběh ' + (p && p.pribeh ? p.pribeh : 0) + ', neznámé ' + (p ? p.neplatne : 0) + ', převzetí ' + (p ? p.prevzatia : 0) + ', cizí ' + (p ? p.odmietnute : 0),
         'Zobrazené titulky: ' + zobrazene,
         '----'
     ];
@@ -72,7 +72,7 @@ function kresliLadenie(teraz) {
 function kresliStav() {
     var riadky = [hdmiText, prijemText];
     if (nazovTv && !prijemChyba) {
-        riadky.push('V telefóne zvoľ: ' + nazovTv);
+        riadky.push('V telefonu nebo na Macu vyber: ' + nazovTv);
     }
     elStav.textContent = riadky.join('\n');
 }
@@ -94,7 +94,7 @@ function chybaHdmi(co) {
 
 function ukazHdmi() {
     if (hdmi.length === 0) {
-        hdmiText = 'Nenašiel som žiadny HDMI vstup.';
+        hdmiText = 'Nenašel jsem žádný HDMI vstup.';
         ukazStav(60000);
         return;
     }
@@ -102,17 +102,17 @@ function ukazHdmi() {
     tizen.tvwindow.setSource(zdroj, function () {
         tizen.tvwindow.show(
             function () {
-                hdmiText = 'HDMI ' + zdroj.number + ' beží (' + (idx + 1) + ' z ' + hdmi.length + ')';
+                hdmiText = 'HDMI ' + zdroj.number + ' běží (' + (idx + 1) + ' z ' + hdmi.length + ')';
                 zaznam(hdmiText);
                 try { localStorage.setItem('playcaption-hdmi', String(zdroj.number)); } catch (e) {}
                 ukazStav();
             },
-            chybaHdmi('show zlyhalo'),
+            chybaHdmi('show selhalo'),
             ['0px', '0px', '1920px', '1080px'],
             'MAIN',
             'BEHIND'
         );
-    }, chybaHdmi('setSource zlyhalo'));
+    }, chybaHdmi('setSource selhalo'));
 }
 
 function filtrujHdmi(zoznam) {
@@ -151,7 +151,7 @@ function spracujPaket(paket, zdroj) {
     var zmenaSpojenia = poslednyZdroj !== zdroj || (dataVidene && teraz - dataVidene > 5000);
     if (zmenaSpojenia) {
         vycistiText(paket.kind === 'story' && (!poslednyZdroj || poslednyZdroj === zdroj));
-        prijemText = 'Telefón posiela titulky (' + zdroj + ').';
+        prijemText = 'Titulky přicházejí (' + zdroj + ').';
         prijemChyba = false;
         ukazStav(4000);
     }
@@ -174,15 +174,15 @@ function spracujPaket(paket, zdroj) {
     }
     posledneId = paket.id;
     if (novy) {
-        var druh = paket.kind === 'story' ? 'Príbeh' : 'Titulok #' + paket.id + ' (' + paket.duration + ' ms)';
+        var druh = paket.kind === 'story' ? 'Příběh' : 'Titulek #' + paket.id + ' (' + paket.duration + ' ms)';
         if (paket.text) {
             zobrazene++;
             zaznam(druh + ': ' + paket.text.replace(/\n/g, ' / ').slice(0, 70));
         } else {
-            zaznam(druh + ': prázdny (schovať)');
+            zaznam(druh + ': prázdný (schovat)');
         }
         if (paket.hint) {
-            zaznam('Nápoveda: ' + paket.hint.replace(/\n/g, ' / ').slice(0, 70));
+            zaznam('Nápověda: ' + paket.hint.replace(/\n/g, ' / ').slice(0, 70));
         }
     }
     elTitulok.hidden = !paket.text;
@@ -228,13 +228,13 @@ function odSluzby(data) {
         nazovTv = sprava.nazov;
         verziaTv = sprava.verzia || '';
         if (!stavSluzby) {
-            zaznam('Služba beží: ' + sprava.nazov);
+            zaznam('Služba běží: ' + sprava.nazov);
         }
         stavSluzby = sprava;
         if (prijemChyba || !dataVidene || Date.now() - dataVidene > 5000) {
-            var bolaChyba = prijemChyba || prijemText.indexOf('Spúšťam') === 0;
+            var bolaChyba = prijemChyba || prijemText.indexOf('Spouštím') === 0;
             prijemChyba = false;
-            prijemText = 'Príjem pripravený, čakám na telefón. (' + sprava.node + ')';
+            prijemText = 'Příjem připraven, čekám na telefon nebo Mac. (' + sprava.node + ')';
             if (bolaChyba) {
                 ukazStav(15000);
             } else {
@@ -249,7 +249,7 @@ function odSluzby(data) {
         zaznam('CHYBA služby: ' + sprava.text);
         ukazStav(60000);
     } else if (sprava.t === 'iny') {
-        prijemText = 'Titulky skúša posielať aj iné zariadenie, ignorujem ho.';
+        prijemText = 'Titulky zkouší posílat i jiné zařízení, ignoruji ho.';
         ukazStav(6000);
     }
 }
@@ -260,11 +260,11 @@ function spustiSluzbu() {
     var idSluzby = ja.appInfo.packageId + '.Prijimac';
     function zlyhalo(e) {
         prijemChyba = true;
-        prijemText = 'Službu príjmu sa nepodarilo spustiť: ' + (e && e.message ? e.message : e);
+        prijemText = 'Službu příjmu se nepodařilo spustit: ' + (e && e.message ? e.message : e);
         zaznam(prijemText);
         ukazStav(60000);
     }
-    zaznam('Spúšťam službu ' + idSluzby);
+    zaznam('Spouštím službu ' + idSluzby);
     try {
         var ovladanie = new tizen.ApplicationControl(
             'http://tizen.org/appcontrol/operation/service', null, null, null,
@@ -288,14 +288,14 @@ function tik() {
     if (dataVidene && teraz - dataVidene > 5000) {
         dataVidene = 0;
         vycistiText(true);
-        prijemText = 'Spojenie s telefónom prerušené, čakám.';
-        zaznam('5 s bez dát z telefónu, schovávam titulky');
+        prijemText = 'Spojení s odesílatelem přerušeno, čekám.';
+        zaznam('5 s bez dat od odesílatele, schovávám titulky');
         ukazStav(10000);
     }
     if (typeof tizen !== 'undefined' && teraz - sluzbaVidena > 7000 && teraz - sluzbaPokus > 7000) {
         if (sluzbaPokus && !prijemChyba) {
             prijemChyba = true;
-            prijemText = 'Služba príjmu neodpovedá, skúšam znova.';
+            prijemText = 'Služba příjmu neodpovídá, zkouším znovu.';
             zaznam(prijemText);
             ukazStav(60000);
         }
@@ -335,15 +335,15 @@ document.addEventListener('keydown', function (e) {
 });
 
 window.onload = function () {
-    elNapoveda.textContent = 'Šípky vľavo a vpravo: iný HDMI vstup. OK: ladenie a stav. Späť: koniec.';
+    elNapoveda.textContent = 'Šipky vlevo a vpravo: jiný HDMI vstup. OK: ladění a stav. Zpět: konec.';
     try { ladenie = localStorage.getItem('playcaption-ladenie') !== '0'; } catch (e) {}
     stavNatrvalo = ladenie;
-    zaznam('Apka spustená');
+    zaznam('Aplikace spuštěna');
     ukazStav(15000);
     setInterval(tik, 250);
 
     if (typeof tizen === 'undefined') {
-        hdmiText = 'Toto nebeží na Tizen TV (chýba objekt tizen).';
+        hdmiText = 'Tohle neběží na Tizen TV (chybí objekt tizen).';
         prijemText = '';
         ukazStav(600000);
         return;
@@ -353,7 +353,7 @@ window.onload = function () {
         tizen.messageport.requestLocalMessagePort(NAZOV_PORTU).addMessagePortListener(odSluzby);
     } catch (e) {
         prijemChyba = true;
-        prijemText = 'Spojenie so službou zlyhalo: ' + (e && e.message ? e.message : e);
+        prijemText = 'Spojení se službou selhalo: ' + (e && e.message ? e.message : e);
         zaznam(prijemText);
     }
     spustiSluzbu();
@@ -361,7 +361,7 @@ window.onload = function () {
     tizen.systeminfo.getPropertyValue('VIDEOSOURCE', function (info) {
         var spojene = filtrujHdmi(info.connected || []);
         hdmi = spojene.length > 0 ? spojene : filtrujHdmi(info.supported || []);
-        zaznam('HDMI vstupy: pripojené ' + spojene.length + ', podporované ' + filtrujHdmi(info.supported || []).length);
+        zaznam('HDMI vstupy: připojené ' + spojene.length + ', podporované ' + filtrujHdmi(info.supported || []).length);
         var ulozene = null;
         try { ulozene = localStorage.getItem('playcaption-hdmi'); } catch (e) {}
         for (var i = 0; i < hdmi.length; i++) {
@@ -370,5 +370,5 @@ window.onload = function () {
             }
         }
         ukazHdmi();
-    }, chybaHdmi('Čítanie zdrojov zlyhalo'));
+    }, chybaHdmi('Čtení zdrojů selhalo'));
 };

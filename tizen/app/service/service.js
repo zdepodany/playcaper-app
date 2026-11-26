@@ -8,7 +8,7 @@ var PORT_TITULKY = 41989;
 var NAZOV_PORTU = "PLAYCAPTION_UI";
 var NAZOV_PORTU_SLUZBY = "PLAYCAPTION_SLUZBA";
 // Rovnaké číslo ako version v config.xml (stráži tizen/build.py). Telefón ho číta z ohlásenia.
-var VERZIA = "1.3.0";
+var VERZIA = "1.3.1";
 
 var socket = null;
 var casovac = null;
@@ -88,7 +88,7 @@ function otvorPortOdApky() {
     } catch (e) {
         portOdApky = null;
         potvrdzovanie = false;
-        zaznam("Príbehový režim nie je dostupný: " + (e && e.message ? e.message : e));
+        zaznam("Příběhový režim není dostupný: " + (e && e.message ? e.message : e));
     }
 }
 
@@ -117,7 +117,7 @@ function spusti() {
         crypto = require("crypto");
         parse = require("./protocol").parse;
     } catch (e) {
-        chybaTextu = "Služba nemá sieťové moduly: " + (e && e.message ? e.message : e);
+        chybaTextu = "Služba nemá síťové moduly: " + (e && e.message ? e.message : e);
         posli({ t: "chyba", text: chybaTextu });
         return;
     }
@@ -148,7 +148,7 @@ function spusti() {
     function tik() {
         adresy.forEach(function (adresa) {
             prijimac.send(ohlasenie, 0, ohlasenie.length, PORT_HLADANIE, adresa, function (e) {
-                if (e) zaznam("Ohlásenie na " + adresa + " zlyhalo: " + (e.code || e.message));
+                if (e) zaznam("Ohlášení na " + adresa + " selhalo: " + (e.code || e.message));
             });
         });
         pocty.ohlasenia++;
@@ -157,7 +157,7 @@ function spusti() {
     }
 
     prijimac.on("error", function (e) {
-        chybaTextu = "Príjem UDP zlyhal: " + (e && (e.code || e.message) ? (e.code || e.message) : e);
+        chybaTextu = "Příjem UDP selhal: " + (e && (e.code || e.message) ? (e.code || e.message) : e);
         posli({ t: "chyba", text: chybaTextu });
         zastav();
     });
@@ -170,12 +170,12 @@ function spusti() {
             // odpovie preto „nespárované“ a telefón sa prihlási sám.
             if (bajty.length <= 512 && bajty.toString("utf8").indexOf("PCS1\t") === 0) {
                 pocty.prevzatia++;
-                zaznam("Žiadosť o prevzatie prihlásenia z " + odkial.address + ", odpovedám: nespárované");
+                zaznam("Žádost o převzetí přihlášení z " + odkial.address + ", odpovídám: nespárováno");
                 var odpoved = retazecNaBajty("PCS1\tCHYBA\tnesparovano");
                 prijimac.send(odpoved, 0, odpoved.length, odkial.port, odkial.address, function () {});
             } else {
                 pocty.neplatne++;
-                zaznam("Neznáma správa z " + odkial.address + " (" + bajty.length + " B): " +
+                zaznam("Neznámá zpráva z " + odkial.address + " (" + bajty.length + " B): " +
                     bajty.toString("utf8").slice(0, 60).replace(/[\t\n\r]/g, " "));
             }
             return;
@@ -199,7 +199,7 @@ function spusti() {
         if (paket.kind === "story" && !potvrdzovanie) return;
         if (odosielatel !== odkial.address) {
             pribehKomu = null;
-            zaznam("Titulky posiela " + odkial.address);
+            zaznam("Titulky posílá " + odkial.address);
         }
         odosielatel = odkial.address;
         odosielatelVideny = teraz;
@@ -216,7 +216,7 @@ function spusti() {
         try { prijimac.setBroadcast(true); } catch (e) {}
         pripravene = true;
         chybaTextu = "";
-        zaznam("UDP počúva na porte " + PORT_TITULKY + ", ohlasujem sa na " + adresy.join(", "));
+        zaznam("UDP poslouchá na portu " + PORT_TITULKY + ", ohlašuji se na " + adresy.join(", "));
         tik();
         casovac = setInterval(tik, 2000);
     });

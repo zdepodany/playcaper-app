@@ -118,12 +118,12 @@ const cakaj = (ms) => new Promise((r) => setTimeout(r, ms));
     assert.ok(/0, 255, 0/.test(stav.meno));
     assert.deepStrictEqual(stav.volby, ["Ostať tu", "Utiecť*", "Bojovať"]);
     assert.ok(stav.modry && stav.zlty);
-    assert.ok(/Prijaté: titulky 1, voľby 1, oblasti 1, príbeh 1, neznáme 1, prevzatia 1/.test(stav.ladenie), "počty v ladení nesedia");
-    assert.ok(/Neznáma správa z 127\.0\.0\.1 \(8 B\): nezmysel/.test(stav.ladenie));
-    assert.ok(/Žiadosť o prevzatie prihlásenia/.test(stav.ladenie));
-    assert.ok(/Titulok #7 \(6000 ms\): Elena/.test(stav.ladenie));
-    assert.ok(/HDMI 3 beží/.test(stav.stav) && /Telefón posiela titulky/.test(stav.stav));
-    assert.ok(new RegExp("verzia " + verzia.replace(/\./g, "\\.")).test(stav.ladenie), "ladenie neukazuje verziu");
+    assert.ok(/Přijato: titulky 1, volby 1, oblasti 1, příběh 1, neznámé 1, převzetí 1/.test(stav.ladenie), "počty v ladení nesedia");
+    assert.ok(/Neznámá zpráva z 127\.0\.0\.1 \(8 B\): nezmysel/.test(stav.ladenie));
+    assert.ok(/Žádost o převzetí přihlášení/.test(stav.ladenie));
+    assert.ok(/Titulek #7 \(6000 ms\): Elena/.test(stav.ladenie));
+    assert.ok(/HDMI 3 běží/.test(stav.stav) && /Titulky přicházejí/.test(stav.stav));
+    assert.ok(new RegExp("verze " + verzia.replace(/\./g, "\\.")).test(stav.ladenie), "ladenie neukazuje verziu");
     await strana.screenshot({ path: process.argv[2] || path.resolve(__dirname, "nahlad.png") });
 
     // Príbeh: replika sa ukáže, apka hlási "reading" a po dočítaní "done"; bežný titulok ju medzitým neprepíše.
@@ -166,7 +166,7 @@ const cakaj = (ms) => new Promise((r) => setTimeout(r, ms));
 
     await strana.clock.runFor(5600);
     assert.strictEqual(await strana.evaluate(() => document.getElementById("subtitle").hidden), true, "po výpadku má titulok zmiznúť");
-    assert.ok(/prerušené/.test(await strana.evaluate(() => document.getElementById("stav").textContent)));
+    assert.ok(/přerušeno/.test(await strana.evaluate(() => document.getElementById("stav").textContent)));
 
     await prehliadac.close();
     sluzba.onExit();
