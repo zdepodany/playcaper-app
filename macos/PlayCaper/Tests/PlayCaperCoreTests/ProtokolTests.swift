@@ -20,6 +20,14 @@ final class ProtokolTests: XCTestCase {
         XCTAssertEqual(Protokol.escapuj("a\\b\tc\nd"), "a\\\\b c\\nd")
     }
 
+    func testOblastNaTv() {
+        // levý, horní, pravý, dolní okraj (jako `Propojeni.Vysilac.oblastTitulku` na Androidu)
+        XCTAssertEqual(Protokol.oblast(CGRect(x: 0.1, y: 0.7, width: 0.8, height: 0.26), ukazat: true),
+                       "PCO1\t1\t0.1000\t0.7000\t0.9000\t0.9600")
+        XCTAssertEqual(Protokol.oblast(CGRect(x: 0, y: 0, width: 1, height: 1), ukazat: false),
+                       "PCO1\t0\t0.0000\t0.0000\t1.0000\t1.0000")
+    }
+
     func testOhlaseniLg() {
         let tv = Protokol.prectiOhlaseni("PLAYCAPTION_TV\tlg-abc\tLG obývák\t0", ip: "192.168.1.50")
         XCTAssertEqual(tv, Protokol.Televize(id: "lg-abc", jmeno: "LG obývák", ip: "192.168.1.50"))

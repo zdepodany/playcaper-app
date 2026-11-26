@@ -6,6 +6,7 @@ import SwiftUI
 struct MenuView: View {
     @ObservedObject var rizeni: Rizeni
     @Environment(\.openSettings) private var otevriNastaveni
+    @Environment(\.openWindow) private var otevriOkno
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -27,6 +28,14 @@ struct MenuView: View {
             if rizeni.viditelneTelevize.isEmpty {
                 Text("Hledám přijímač na síti… (na TV musí běžet přijímač PlayCaption)")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            if rizeni.samsungKAktualizaci {
+                Button("Na TV je starší přijímač – aktualizovat…") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    otevriOkno(id: "prijimac")
+                }
+                .buttonStyle(.link)
+                .font(.caption)
             }
             if let chyba = rizeni.chybaSite {
                 Text("Odesílání na TV: \(chyba)").font(.caption).foregroundStyle(.red)
@@ -53,6 +62,10 @@ struct MenuView: View {
                 Button("Nastavení…") {
                     NSApp.activate(ignoringOtherApps: true)
                     otevriNastaveni()
+                }
+                Button("Oblast…") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    otevriOkno(id: "oblast")
                 }
                 Button("Záznam") { NSWorkspace.shared.open(Zaznam.soubor) }
                 Spacer()
@@ -97,6 +110,7 @@ struct StavRadek: View {
 
 struct NastaveniView: View {
     @ObservedObject var rizeni: Rizeni
+    @Environment(\.openWindow) private var otevriOkno
     @State private var klice = Klicenka.nactiKlice().joined(separator: "\n")
     @State private var ulozeno = false
     @State private var x = 0.0
@@ -120,12 +134,22 @@ struct NastaveniView: View {
                     if ulozeno { Text("Uloženo (\(rizeni.deeplKlicu))").font(.caption).foregroundStyle(.green) }
                 }
             }
+            Section("Přijímač na TV") {
+                Button("Nainstalovat nebo aktualizovat Samsung přijímač…") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    otevriOkno(id: "prijimac")
+                }
+            }
             Section("Oblast čtení (zlomky obrazu hry, počátek vlevo nahoře)") {
                 HStack {
                     pole("x", $x); pole("y", $y); pole("šířka", $s); pole("výška", $v)
                 }
+                Button("Nastavit tažením nad náhledem…") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    otevriOkno(id: "oblast")
+                }
                 HStack {
-                    Button("Použít") { rizeni.oblast = CGRect(x: x, y: y, width: s, height: v) }
+                    Button("Použít") { rizeni.oblast = OblastCteni.omez(CGRect(x: x, y: y, width: s, height: v)) }
                     Button("Výchozí GTA VI") { rizeni.oblast = Rizeni.oblastGta; nactiOblast() }
                     Spacer()
                     Button("Ukázat poslední výřez") { rizeni.ulozVyrez() }
@@ -135,6 +159,7 @@ struct NastaveniView: View {
         .formStyle(.grouped)
         .frame(width: 480)
         .onAppear(perform: nactiOblast)
+        .onChange(of: rizeni.oblast) { nactiOblast() }
     }
 
     private func pole(_ popisek: String, _ hodnota: Binding<Double>) -> some View {

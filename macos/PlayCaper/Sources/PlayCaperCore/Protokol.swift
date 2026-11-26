@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Protokol telefon/Mac → přijímač na TV. Musí odpovídat `Propojeni.kt` (Android)
@@ -22,6 +23,14 @@ public enum Protokol {
     public static func titulek(cislo: Int64, doba: Int64, text: String, napoveda: String = "", gta: Bool) -> String {
         let t = gta && !text.isEmpty ? znackaGta + text : text
         return "PCT1\t\(cislo)\t\(doba)\t\(escapuj(t))\t\(escapuj(napoveda))"
+    }
+
+    /// Modrý rámeček oblasti čtení na TV (`PCO1`, jako `Propojeni.Vysilac.oblastTitulku`):
+    /// ukázat 0/1, pak levý, horní, pravý a dolní okraj ve zlomcích obrazu.
+    /// Přijímač rámeček sám schová 8 s po poslední zprávě.
+    public static func oblast(_ o: CGRect, ukazat: Bool) -> String {
+        func c(_ v: CGFloat) -> String { String(format: "%.4f", Double(v)) }
+        return "PCO1\t\(ukazat ? 1 : 0)\t\(c(o.minX))\t\(c(o.minY))\t\(c(o.maxX))\t\(c(o.maxY))"
     }
 
     /// Smaže titulek, volby i rámeček na televizi, od které se odpojujeme (jako `vycistiCil` na Androidu).

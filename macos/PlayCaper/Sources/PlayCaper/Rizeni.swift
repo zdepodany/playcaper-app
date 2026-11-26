@@ -25,6 +25,9 @@ final class Rizeni: ObservableObject {
     @Published private(set) var posledniCz = ""
     @Published private(set) var posledniInfo = ""
     @Published private(set) var ocrMs = 0.0
+    /// Řádky posledního OCR pro náhled v okně Oblast čtení (samostatný objekt, ať se 10× za sekundu
+    /// nepřekresluje menu).
+    let ladeni = LadeniOcr()
 
     private let snimac: Snimac
     private let vysilac: Vysilac
@@ -37,12 +40,14 @@ final class Rizeni: ObservableObject {
     private var ukazanoKdy: Date?
     private var ukazanaDelka = 0
     private var schovani: DispatchWorkItem?
+    private var schovaniOblasti: DispatchWorkItem?
+    private var oblastNaTvKdy = Date.distantPast
 
     init() {
         d.register(defaults: ["zapnuto": true, "gta": true, "tvId": ""])
         let ulozenaOblast = (d.array(forKey: "oblast") as? [Double]).flatMap { a in
             a.count == 4 ? CGRect(x: a[0], y: a[1], width: a[2], height: a[3]) : nil
-        } ?? Self.oblastGta
+        }.map(OblastCteni.omez) ?? Self.oblastGta
         zapnuto = d.bool(forKey: "zapnuto")
         gta = d.bool(forKey: "gta")
         vybranaTvId = d.string(forKey: "tvId") ?? ""
@@ -80,6 +85,30 @@ final class Rizeni: ObservableObject {
         if snimac.ulozPosledniVyrez(do: url) { NSWorkspace.shared.open(url) }
     }
 
+    /// Modrý rámeček oblasti na TV nad skutečnou hrou (jako tažení rámečku na Androidu).
+    /// Při tažení nejvýš ~12× za sekundu, `vynutit` pošle vždy (konečná poloha).
+    /// Schová se 2,5 s po posledním volání.
+    func ukazOblastNaTv(_ o: CGRect, vynutit: Bool = false) {
+        let ted = Date()
+        if vynutit || ted.timeIntervalSince(oblastNaTvKdy) >= 0.08 {
+            oblastNaTvKdy = ted
+            vysilac.posliJednou(Protokol.oblast(o, ukazat: true))
+        }
+        schovaniOblasti?.cancel()
+        let ukol = DispatchWorkItem { [weak self] in
+            self?.vysilac.posliJednou(Protokol.oblast(o, ukazat: false))
+        }
+        schovaniOblasti = ukol
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: ukol)
+    }
+
+    /// Vybraná TV je Samsung se starším přijímačem, než jaký je přibalený v appce.
+    var samsungKAktualizaci: Bool {
+        guard let tv = viditelneTelevize.first(where: { $0.id == vybranaTvId }), tv.id.hasPrefix("samsung-"),
+              let b = InstalatorSamsung.balicek?.0 else { return false }
+        return SamsungPrijimac.porovnej(naTv: tv.verze, pribalena: b.verze) == .starsi
+    }
+
     /// Televize ohlášené za posledních 10 s (+ vybraná, i když se zrovna neohlásila).
     var viditelneTelevize: [Protokol.Televize] {
         let ted = Date()
@@ -99,6 +128,7 @@ final class Rizeni: ObservableObject {
             schovani?.cancel()
             vysilac.zmena("", doba: 0)
             posledniEn = ""; posledniCz = ""
+            ladeni.nastav([], vybrane: [], oblast: oblast)
         }
     }
 
@@ -134,6 +164,7 @@ final class Rizeni: ObservableObject {
         guard zapnuto else { return }
         ocrMs = ms
         let vybrane = VyberTitulku.vyber(radky)
+        ladeni.nastav(radky, vybrane: vybrane, oblast: oblast)
         guard let novy = textVRamecku.zpracuj(vybrane.map(\.text), ted: Date().timeIntervalSince1970) else { return }
         if novy.isEmpty {
             schovejCesky()
@@ -188,5 +219,22 @@ final class Rizeni: ObservableObject {
         }
         schovani = ukol
         DispatchQueue.main.asyncAfter(deadline: .now() + max(0, zbyva), execute: ukol)
+    }
+}
+
+/// Řádky posledního OCR ve zlomcích obrazu hry, pro náhled v okně Oblast čtení.
+@MainActor
+final class LadeniOcr: ObservableObject {
+    struct Radek: Equatable {
+        let ramec: CGRect
+        /// true = výběr titulku ho vzal, false = zahozený (nápis ve scéně, HUD…)
+        let vybrany: Bool
+    }
+
+    @Published private(set) var radky: [Radek] = []
+
+    func nastav(_ vse: [OcrRadek], vybrane: [OcrRadek], oblast: CGRect) {
+        let nove = vse.map { Radek(ramec: OblastCteni.radekVObraze($0, oblast: oblast), vybrany: vybrane.contains($0)) }
+        if nove != radky { radky = nove }
     }
 }

@@ -62,6 +62,13 @@ final class Vysilac {
         }
     }
 
+    /// Jedna zpráva mimo opakované titulky (rámeček oblasti `PCO1`).
+    func posliJednou(_ zprava: String) {
+        fronta.async { [self] in
+            if let cil { odesli(zprava, cil) }
+        }
+    }
+
     private func posli() {
         guard let cil else { return }
         odesli(Protokol.titulek(cislo: cislo, doba: doba, text: text, gta: gta), cil)

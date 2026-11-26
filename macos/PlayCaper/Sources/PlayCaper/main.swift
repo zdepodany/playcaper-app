@@ -15,6 +15,16 @@ struct PlayCaperApp: App {
         }
         .windowResizability(.contentSize)
 
+        Window("Oblast čtení", id: "oblast") {
+            OblastOkno(rizeni: rizeni)
+        }
+        .defaultSize(width: 900, height: 600)
+
+        Window("Přijímač na TV", id: "prijimac") {
+            PrijimacOkno(rizeni: rizeni)
+        }
+        .windowResizability(.contentSize)
+
         MenuBarExtra {
             MenuView(rizeni: rizeni)
         } label: {

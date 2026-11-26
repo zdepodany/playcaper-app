@@ -13,6 +13,13 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/PlayCaper "$APP/Contents/MacOS/PlayCaper"
 
+# Samsung přijímač pro okno „Přijímač na TV“ (čerstvě sestavený, tizen/build.py spustí i jeho testy).
+python3 ../../tizen/build.py >/dev/null
+mkdir -p "$APP/Contents/Resources/samsung"
+MANIFEST=../../tizen/dist/receiver-manifest.json
+WGT=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["file"])' "$MANIFEST")
+cp "$MANIFEST" "../../tizen/dist/$WGT" "$APP/Contents/Resources/samsung/"
+
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
