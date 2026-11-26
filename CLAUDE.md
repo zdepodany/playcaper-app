@@ -31,7 +31,13 @@ python3 tizen/sync.py         # po změně webos/service/protocol.js nebo webos/
 python3 tizen/build.py        # Samsung: nepodepsaný WGT do tizen/dist/
 node tizen/test/test.cjs
 python3 -m unittest discover -s tools/ocr -v         # OCR skórování (CER/WER)
+
+cd macos/PlayCaper && swift test                     # Mac verze: testy jádra
+macos/PlayCaper/nastroje/sestav-app.sh               # Mac verze: dist/PlayCaper.app
+node macos/PlayCaper/nastroje/falesna-tv.cjs         # falešná TV pro ladění bez televize
 ```
+
+**Mac verze (`macos/PlayCaper`, PC-009).** Swift appka v menu baru jen pro autora forku: snímá okno PS Remote Play (ScreenCaptureKit), OCR přes Vision, posílá `PCT1` stejným přijímačům. `PlayCaperCore` obsahuje přepis `StabilitaTextu`/`TextVRamecku` z Androidu a kódování protokolu; změny chování a protokolu dělat na obou stranách. Bez příběhového režimu. Podrobnosti v `macos/PlayCaper/README.md`.
 
 Neexistuje lint ani formátovací krok (`lint` je v Gradle záměrně vypnutý). Kořenový projekt se jmenuje `TitulkyTV`, jediný modul je `:app`.
 

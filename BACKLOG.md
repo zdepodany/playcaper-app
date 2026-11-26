@@ -186,8 +186,10 @@ Cíl je méně online překladů, hlavně šetřit měsíční limit DeepL.
 
 ## PC-009 – PlayCaper pro Mac (snímání okna Remote Play)
 
-Stav: nápad k diskusi 25. 11. 2026, nic neimplementováno. Rozhodnutí
-26. 11. 2026 viz „Rozhodnuto“ níže.
+Stav: MVP v `macos/PlayCaper` (26. 11. 2026). Ověřeno na zařízení proti
+falešné TV na Macu (`nastroje/falesna-tv.cjs`, parser LG přijímače) při hraní
+GTA VI; se skutečnou TV zatím ne (Samsung přijímač není nainstalovaný, viz
+`SAMSUNG-TEST.md`). Rozhodnutí 26. 11. 2026 viz „Rozhodnuto“ níže.
 Autor forku má iPhone a Mac, kamarád Android. Verze pro iPhone by znamenala
 přepsat Chiaki/Remote Play a narazit na omezení iOS (broadcast `PLAYCAPTION_TV`
 jen s entitlementem pro multicast, uspávání na pozadí, podpis na 7 dní, AGPL
@@ -278,10 +280,27 @@ vs. App Store). Mac tato omezení nemá.
 - Instalace a aktualizace přijímačů LG/Samsung z Macu (SSH, stávající
   `webos/build.py` a `tizen/build.py`).
 
-### První krok
+### MVP (hotovo 26. 11. 2026)
 
-Prototyp na jeden večer: ScreenCaptureKit + Vision nad oknem PS Remote Play
-s titulky ze hry. Změřit čas čtení a kvalitu OCR, ověřit otázku 1.
+Appka v menu baru (`macos/PlayCaper`, popis v jeho README): najde okno Remote
+Play, čte výřez titulků každých 100 ms, vybere vystředěný blok řádků (nápisy
+ve scéně a český text zahodí), stabilizuje (přepis `StabilitaTextu` /
+`TextVRamecku`), přeloží (DeepL z Klíčenky, záložně Google) a pošle `PCT1`
+vybrané TV. Časování schovávání jako na Androidu (1,8 s + 60 ms/znak).
+Drží zámek proti zhasnutí displeje. Podepisuje se certifikátem Apple
+Development, oprávnění k nahrávání obrazovky tak přežije nový build.
+
+Naměřeno při hraní: čtení 50–110 ms, překlad Google 50–260 ms.
+Odchylka od Androidu: titulek se stejnými slovy a jinou interpunkcí se
+nepřekládá znovu (Vision střídá „Uh, yeah“ / „Uh. yeah“).
+
+### Další kroky
+
+1. Ověřit se skutečnou TV (nejdřív nainstalovat Samsung přijímač).
+2. Volby odpovědí GTA VI (`PCV1`, port `Volby.kt` / `IkonyVoleb.kt`).
+3. Výběr oblasti tažením nad náhledem okna místo čísel v Nastavení.
+4. Úpravy OCR z Androidu (`Prekladac.upravSlang`), spojování rozdělených vět
+   (`prelozAUkaz`), paměť překladů (PC-008).
 
 ## PC-011 – Sady překladů pro hry
 
