@@ -52,14 +52,14 @@ Neexistuje lint ani formátovací krok (`lint` je v Gradle záměrně vypnutý).
 - `tizen/`: Samsung přijímač. `app/js/prijimac-ui.js` a `app/service/protocol.js` **vznikají kopírováním z `webos/` přes `tizen/sync.py`, neupravuj je ručně**. WGT je nepodepsaný (podpis je vázaný na konkrétní TV).
 - Android `Lg*.kt` / `Samsung*.kt` (průvodce, SSH instalace přes JSch, Developer Mode) instalují přibalený přijímač z `assets/lg/` a `assets/samsung/`, které generují Gradle úlohy `prepareLgReceiver` / `prepareSamsungReceiver` v `app/build.gradle.kts` (kontrolují manifest, SHA-256 a název souboru).
 
-**Kompatibilita starších TV (důležité pro LG).** Na webOS 3.x/4.x běží služby v Node.js 0.12 a UI v Chromiu 53: nepoužívej `Buffer.from`, `Array.prototype.find`, `String.prototype.trimEnd` a podobné novější API v `webos/service/` a `webos/app/`. Na webOS 4.4 zavře TV překryv po 120 s bez stisku ovladače (nevyřešeno). Podrobnosti zjištěné na LG 43UK6300 jsou ve `webos/TESTOVANI.md` a `webos/SHODA-ANDROID.md`.
+**Kompatibilita starších TV (důležité pro LG).** Na webOS 3.x/4.x běží služby v Node.js 0.12 a UI v Chromiu 53: nepoužívej `Buffer.from`, `Array.prototype.find`, `String.prototype.trimEnd` a podobné novější API v `webos/service/` a `webos/app/`. Na webOS 4.4 zavře TV překryv po 120 s bez stisku ovladače; služba to obchází tak, že přes SSAP (`webos/service/keepalive.js`) jednou za minutu pošle stisk tlačítka RED. Podrobnosti zjištěné na LG 43UK6300 jsou ve `webos/TESTOVANI.md` a `webos/SHODA-ANDROID.md`.
 
 **Nativní vrstva.** `app/src/main/jniLibs/*/` obsahuje předsestavené `libchiaki-jni.so` (Chiaki 2.1.1 se dvěma patchi: `native/chiaki-audio-unlock.patch`, `chiaki-silent-audio.patch`), `libchiaki-pc.so` (kopie s přejmenovanou závislostí, načítá se přednostně, `libchiaki-jni.so` je záloha) a vlastní `libpcobraz1.so` (zdroj `native/pcobraz.c`). Normální vývoj je nepřestavuje; postup s NDK r21e je v `native/README.md`. `com/metallic/chiaki/lib/Chiaki.kt` je převzatý a upravený kód Chiaki (úpravy v hlavičce souboru).
 
 ## Konvence
 
 - Při každé nové verzi zvyš `versionCode` + `versionName` v `app/build.gradle.kts` a dopiš změny do `CHANGELOG.md` (sekce „Nevydané změny“ → nová verze).
-- Otevřená práce a rozhodnutí: `BACKLOG.md` (položky PC-xxx) a `ROADMAP.md` (P0–P6). Jak se věci ověřovaly na skutečných TV: `webos/TESTOVANI.md`, `docs/P0-VYCHOZI-STAV.md`.
+- Otevřená práce a rozhodnutí: `BACKLOG.md` (položky PC-xxx, včetně navrženého pořadí). Jak se věci ověřovaly na skutečných TV: `webos/TESTOVANI.md`, `docs/P0-VYCHOZI-STAV.md`.
 - Texty v UI jsou česky; síťové texty se v přijímačích vykreslují přes `textContent`, nikdy jako HTML.
 - Většina chování vyžaduje fyzickou přejímku na TV/konzoli; JVM a Node testy ji nenahrazují (v commitech a dokumentaci se rozlišuje „testy prošly“ a „ověřeno na zařízení“).
 - OCR benchmark používá oddělené `applicationId` přes `tools/ocr/isolated.gradle`, aby nepřepsal běžnou instalaci (viz `tools/ocr/README.md`).
