@@ -11,19 +11,22 @@ struct PlayCaperApp: App {
         // Hlavní okno: ikona v menu baru se na MacBooku s výřezem často nevejde (schová se pod něj),
         // proto je stejný obsah i v okně, které se otevře při spuštění a po kliknutí na ikonu v Docku.
         Window("PlayCaper", id: "hlavni") {
-            MenuView(rizeni: rizeni)
+            HlavniOkno(rizeni: rizeni)
         }
-        .windowResizability(.contentSize)
+        .defaultSize(width: 480, height: 650)
+        .windowResizability(.contentMinSize)
+        .commands { PrikazyTitulku(rizeni: rizeni) }
 
         Window("Oblast čtení", id: "oblast") {
             OblastOkno(rizeni: rizeni)
         }
-        .defaultSize(width: 900, height: 600)
+        .defaultSize(width: 900, height: 640)
 
         Window("Přijímač na TV", id: "prijimac") {
             PrijimacOkno(rizeni: rizeni)
         }
-        .windowResizability(.contentSize)
+        .defaultSize(width: 520, height: 620)
+        .windowResizability(.contentMinSize)
 
         MenuBarExtra {
             MenuView(rizeni: rizeni)

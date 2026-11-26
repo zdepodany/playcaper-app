@@ -72,12 +72,13 @@ final class Rizeni: ObservableObject {
         prepni()
     }
 
-    var deeplKlicu: Int { Klicenka.nactiKlice().count }
+    /// Počet uložených DeepL klíčů (drží se v paměti, hlavní okno se překresluje po každém OCR).
+    @Published private(set) var deeplKlicu = Klicenka.nactiKlice().count
 
     func nastavKlice(_ klice: [String]) {
         Klicenka.ulozKlice(klice)
         Task { await prekladac.nastavKlice(klice) }
-        objectWillChange.send()
+        deeplKlicu = klice.count
     }
 
     func ulozVyrez() {

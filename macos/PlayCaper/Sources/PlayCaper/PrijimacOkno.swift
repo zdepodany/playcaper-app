@@ -200,83 +200,97 @@ struct PrijimacOkno: View {
     @State private var podrobnosti = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Samsung přijímač").font(.title3.weight(.semibold))
-
-            if let chybi = InstalatorSamsung.coChybi {
-                Label(chybi, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+        Form {
+            Section {
+                HStack(spacing: 12) {
+                    Image(systemName: "tv")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Color.blue.gradient, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Samsung přijímač").font(.headline)
+                        Text(popisVerzi).font(.subheadline).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.vertical, 4)
+                if let chybi = InstalatorSamsung.coChybi {
+                    Label(chybi, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                }
             }
 
-            HStack {
-                Text("Televize")
+            Section {
                 if !samsungy.isEmpty {
-                    Picker("", selection: $ip) {
+                    Picker("Televize", selection: $ip) {
                         ForEach(samsungy) { tv in Text("\(tv.jmeno) (\(tv.ip))").tag(tv.ip) }
                         if !ip.isEmpty, !samsungy.contains(where: { $0.ip == ip }) { Text(ip).tag(ip) }
                     }
-                    .labelsHidden()
-                    .frame(maxWidth: 300)
                 }
-                TextField("IP adresa TV", text: $ip).frame(width: 130)
-            }
-            Text("Když přijímač na TV neběží, TV se neohlašuje; pak zadej její IP ručně.")
-                .font(.caption).foregroundStyle(.secondary)
-
-            Text(popisVerzi).font(.callout)
-
-            HStack {
-                Button(nazevTlacitka) {
-                    let cil = ip.trimmingCharacters(in: .whitespaces)
-                    let r = rizeni // žije po celou dobu běhu appky
-                    instalator.instaluj(ip: cil) { r.viditelneTelevize.first(where: { $0.ip == cil })?.verze }
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(instalator.bezi || ip.trimmingCharacters(in: .whitespaces).isEmpty || InstalatorSamsung.coChybi != nil)
-                if instalator.bezi { ProgressView().controlSize(.small) }
+                TextField("IP adresa TV", text: $ip, prompt: Text("např. 192.168.1.50"))
+            } header: {
+                Text("Televize")
+            } footer: {
+                Text("Když přijímač na TV neběží, TV se neohlašuje; pak zadej její IP ručně.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            Section("Postup") {
                 ForEach(instalator.kroky) { k in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         ikona(k.stav).frame(width: 16)
                         Text(k.nazev).foregroundStyle(k.stav == .ceka ? .secondary : .primary)
+                        Spacer()
                         if !k.poznamka.isEmpty {
                             Text(k.poznamka).font(.caption).foregroundStyle(k.stav == .chyba ? .red : .secondary)
+                                .multilineTextAlignment(.trailing)
                         }
                     }
                 }
+                if instalator.hotovo {
+                    Label("Hotovo, na TV běží nový přijímač.", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+                }
+                if let rada = instalator.rada {
+                    Label(rada, systemImage: "lightbulb.fill").foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack {
+                    if instalator.bezi { ProgressView().controlSize(.small) }
+                    Spacer()
+                    Button(nazevTlacitka) {
+                        let cil = ip.trimmingCharacters(in: .whitespaces)
+                        let r = rizeni // žije po celou dobu běhu appky
+                        instalator.instaluj(ip: cil) { r.viditelneTelevize.first(where: { $0.ip == cil })?.verze }
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(instalator.bezi || ip.trimmingCharacters(in: .whitespaces).isEmpty || InstalatorSamsung.coChybi != nil)
+                }
             }
 
-            if instalator.hotovo {
-                Label("Hotovo, na TV běží nový přijímač.", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
-            }
-            if let rada = instalator.rada {
-                Text(rada).font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
-            }
-
-            HStack {
-                Button(podrobnosti ? "Skrýt výstup příkazů" : "Ukázat výstup příkazů") { podrobnosti.toggle() }
-                Button("Zkopírovat výstup") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(instalator.vystup, forType: .string)
+            Section {
+                DisclosureGroup("Výstup příkazů", isExpanded: $podrobnosti) {
+                    ScrollView {
+                        Text(instalator.vystup.isEmpty ? "Zatím nic." : instalator.vystup)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(6)
+                    }
+                    .frame(height: 200)
+                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+                    HStack {
+                        Button("Zkopírovat výstup") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(instalator.vystup, forType: .string)
+                        }
+                        .disabled(instalator.vystup.isEmpty)
+                        Button("Otevřít záznam") { NSWorkspace.shared.open(Zaznam.soubor) }
+                    }
                 }
-                .disabled(instalator.vystup.isEmpty)
-                Button("Otevřít záznam") { NSWorkspace.shared.open(Zaznam.soubor) }
-            }
-            if podrobnosti {
-                ScrollView {
-                    Text(instalator.vystup.isEmpty ? "Zatím nic." : instalator.vystup)
-                        .font(.system(.caption, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(6)
-                }
-                .frame(height: 220)
-                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
             }
         }
-        .padding(16)
-        .frame(width: 520)
+        .formStyle(.grouped)
+        .frame(minWidth: 480, idealWidth: 520, minHeight: 520)
         .onAppear {
             if ip.isEmpty, let tv = samsungy.first { ip = tv.ip }
         }
