@@ -110,6 +110,17 @@ tizen install -n PlayCaption-Samsung-1.3.0-nepodpisany.wgt -t UE55XXXX
 Namiesto príkazov môžeš v Tizen Studiu otvoriť priečinok `tizen/app` ako projekt
 a zvoliť **Run As → Tizen Web Application**.
 
+**Overené na zariadení 26. 11. 2026** (Samsung UE55CU7172, firmware 2202, Mac M3
+s macOS 27.2): stačila verzia Tizen Studio 6.1 len pre príkazový riadok
+(`web-cli_Tizen_Studio_6.1_macos-64.bin --accept-license ~/tizen-studio`, beží cez
+Rosettu, JDK je pribalené) a balíčky `Certificate-Manager`, `cert-add-on`,
+`TV-SAMSUNG-Extension-Tools` cez `package-manager-cli.bin install`. Certificate
+Manager sa spúšťa z `~/tizen-studio/tools/certificate-manager/`. Krok 4
+(„Permit to install“) netreba: `sdb push` súboru `device-profile.xml` do
+`/home/developer/` televízor odmietol, inštalácia napriek tomu prešla, lebo DUID
+je v distribučnom certifikáte. Príkazy `tizen` a `sdb` sú v
+`~/tizen-studio/tools/ide/bin/` a `~/tizen-studio/tools/`.
+
 Časté chyby pri inštalácii:
 
 - **Chyba certifikátu (kód 118, „Invalid certificate chain“).** V certifikáte nie je DUID tohto

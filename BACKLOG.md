@@ -186,10 +186,10 @@ Cíl je méně online překladů, hlavně šetřit měsíční limit DeepL.
 
 ## PC-009 – PlayCaper pro Mac (snímání okna Remote Play)
 
-Stav: MVP v `macos/PlayCaper` (26. 11. 2026). Ověřeno na zařízení proti
-falešné TV na Macu (`nastroje/falesna-tv.cjs`, parser LG přijímače) při hraní
-GTA VI; se skutečnou TV zatím ne (Samsung přijímač není nainstalovaný, viz
-`SAMSUNG-TEST.md`). Rozhodnutí 26. 11. 2026 viz „Rozhodnuto“ níže.
+Stav: MVP v `macos/PlayCaper` (26. 11. 2026). **Ověřeno na zařízení** se
+skutečnou TV: GTA VI na PS5 → PS Remote Play na Macu (M3) → PlayCaper →
+Samsung UE55CU7172 (přijímač 1.3.0), české titulky na TV. Rozhodnutí
+26. 11. 2026 viz „Rozhodnuto“ níže.
 Autor forku má iPhone a Mac, kamarád Android. Verze pro iPhone by znamenala
 přepsat Chiaki/Remote Play a narazit na omezení iOS (broadcast `PLAYCAPTION_TV`
 jen s entitlementem pro multicast, uspávání na pozadí, podpis na 7 dní, AGPL
@@ -296,7 +296,7 @@ nepřekládá znovu (Vision střídá „Uh, yeah“ / „Uh. yeah“).
 
 ### Další kroky
 
-1. Ověřit se skutečnou TV (nejdřív nainstalovat Samsung přijímač).
+1. ~~Ověřit se skutečnou TV~~ (hotovo 26. 11. 2026, Samsung).
 2. Volby odpovědí GTA VI (`PCV1`, port `Volby.kt` / `IkonyVoleb.kt`).
 3. Výběr oblasti tažením nad náhledem okna místo čísel v Nastavení.
 4. Úpravy OCR z Androidu (`Prekladac.upravSlang`), spojování rozdělených vět
