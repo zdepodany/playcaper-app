@@ -26,7 +26,6 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundleShortVersionString</key><string>$VERZE</string>
     <key>CFBundleVersion</key><string>$BUILD</string>
     <key>LSMinimumSystemVersion</key><string>15.0</string>
-    <key>LSUIElement</key><true/>
     <key>NSLocalNetworkUsageDescription</key>
     <string>PlayCaper hledá přijímač titulků na televizi a posílá mu přeložené titulky.</string>
 </dict>

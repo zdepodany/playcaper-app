@@ -8,6 +8,13 @@ struct PlayCaperApp: App {
     @StateObject private var rizeni = Rizeni()
 
     var body: some Scene {
+        // Hlavní okno: ikona v menu baru se na MacBooku s výřezem často nevejde (schová se pod něj),
+        // proto je stejný obsah i v okně, které se otevře při spuštění a po kliknutí na ikonu v Docku.
+        Window("PlayCaper", id: "hlavni") {
+            MenuView(rizeni: rizeni)
+        }
+        .windowResizability(.contentSize)
+
         MenuBarExtra {
             MenuView(rizeni: rizeni)
         } label: {
