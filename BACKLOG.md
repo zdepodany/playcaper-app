@@ -186,7 +186,8 @@ Cíl je méně online překladů, hlavně šetřit měsíční limit DeepL.
 
 ## PC-009 – PlayCaper pro Mac (snímání okna Remote Play)
 
-Stav: nápad k diskusi 25. 11. 2026, nic neimplementováno.
+Stav: nápad k diskusi 25. 11. 2026, nic neimplementováno. Rozhodnutí
+26. 11. 2026 viz „Rozhodnuto“ níže.
 Autor forku má iPhone a Mac, kamarád Android. Verze pro iPhone by znamenala
 přepsat Chiaki/Remote Play a narazit na omezení iOS (broadcast `PLAYCAPTION_TV`
 jen s entitlementem pro multicast, uspávání na pozadí, podpis na 7 dní, AGPL
@@ -204,21 +205,43 @@ vs. App Store). Mac tato omezení nemá.
   (`INTERVAL_MS`) bez přizpůsobení zařízení. Apple Silicon by unesl vyšší
   rozlišení i frekvenci; to je odhad, ne měření.
 
+### Rozhodnuto (26. 11. 2026)
+
+- **Jen pro autora forku.** Kamarád Mac verzi nechce, Windows verze se nedělá.
+  Distribuce = vlastní build, bez podpisu a notarizace pro další lidi.
+- **Ve stejném repu**, adresář `macos/` na `main-fork`, ne samostatné repo.
+  Protokol a přijímače LG/Samsung jsou tady, změny protokolu jdou jedním
+  commitem a jedním během testů. Licence je stejně AGPL (odvozené dílo).
+- **Nativně ve Swiftu** (SwiftUI, ScreenCaptureKit, Vision, Network.framework,
+  URLSession), žádný Kotlin Multiplatform. Bez příběhového režimu zbývá
+  k přepisu jen `StabilitaTextu` (~110 ř.), `RezimTitulku`, kódování paketů
+  z `Propojeni` a případně `Volby` (~250 ř.); KMP by stálo víc než ušetří.
+- **Výstup jen do přijímače na TV.** Autor hraje na TV, do které je PS5
+  zapojená přes HDMI; Mac čte jen druhou kopii obrazu z okna Remote Play.
+  Na Macu žádné okno titulků, jen menu bar (zapnout/vypnout, výběr TV, stav)
+  a ladicí panel. Plovoucí okno titulků z nápadů níže odpadá.
+- **Bez příběhového režimu.** Mac posílá jen `PCT1` a `PCV1`/`PCO1`;
+  `PCQ1`/`PCS1`/`PCA1`, `CteciFronta`, `SkladaniVet` a `CasovaniPribehu`
+  se nepřepisují. Přijímače se nemění. Viz PC-013.
+- **Shoda se stávající implementací:** pro pakety sdílené testovací vektory
+  (vstup → přesné bajty), které čtou JVM testy, Swift testy i `webos/test.cjs`.
+
 ### Otevřené otázky
 
-1. Jde zachytit okno Remote Play, když je schované za jiným oknem,
-   minimalizované nebo na jiné ploše? Ověřit prototypem jako první.
-2. Sdílená logika (`StabilitaTextu`, `SkladaniVet`, `CteciFronta`,
-   `CasovaniPribehu`, `Volby`, kódování paketů z `Propojeni`): Kotlin
-   Multiplatform, nebo přepis do Swiftu a údržba dvakrát?
-3. Distribuce pro sebe: vlastní build stačí. Pro další lidi podpis/notarizace.
+1. **Hlavní riziko.** Jde zachytit okno Remote Play, když je schované za jiným
+   oknem, minimalizované nebo na jiné ploše? Na okno se při hraní nikdo nedívá,
+   takže má být odklizené. Pokud to nejde, musí zůstat viditelné (např. na
+   druhém monitoru); se zavřeným víkem bez externího monitoru nejspíš vůbec.
+   Ověřit prototypem jako první.
+2. Apple Translation framework: podporuje češtinu? Neověřeno, do té doby
+   DeepL/Google jako na Androidu.
 
 ### Nápady na vylepšení (QOL), které Mac umožní
 
 - Výběr okna Remote Play ze seznamu a automatické nalezení po spuštění.
 - Oblast čtení tažením myší nad živým náhledem okna, víc oblastí najednou.
-- Plovoucí průhledné okno titulků vždy nahoře, propouštějící kliknutí: přes
-  okno Remote Play nebo na druhém monitoru. Stav a ovládání v menu baru.
+- ~~Plovoucí průhledné okno titulků vždy nahoře~~ (odpadá, výstup jde na TV).
+  Stav a ovládání v menu baru.
 - Globální klávesové zkratky: pauza, znovu přeložit, ukázat anglický originál,
   kopírovat poslední titulek.
 - Historie titulků (EN + CZ vedle sebe) s hledáním a exportem; možnost vrátit
@@ -341,6 +364,16 @@ ne měření.
 - **G – sady překladů** (PC-011): zásah v paměti = ~0 ms.
 - **H – udržovaná spojení** (keep-alive/HTTP/2 pro všechny služby, ne jen
   ping na Google). Ušetří nové TLS spojení.
+- **I – volba výkonu v nastavení** (přání kamaráda, 26. 11. 2026, telefon
+  Samsung S25 FE). Přepínač Úsporný / Vyvážený / Maximální, který jen
+  zapíná a ladí ostatní návrhy: interval OCR (`INTERVAL_MS`, dnes 100 ms;
+  např. 200 / 100 / 50 ms), počet čteček (F), spekulativní překlad (D),
+  souběh služeb (C) a délku čekání na potvrzení textu. Výkon telefonu
+  zrychlí jen OCR; čekání na potvrzení je záměrné a online překlad závisí
+  na síti. Rizika „Maximální“: baterie, přehřátí a throttling (může
+  zhoršit i dekódování Remote Play), čerpání kvóty DeepL, blokace Googlu,
+  víc useknutých vět (PC-001). Dělat až po měření z A, jinak hrozí, že se
+  telefon jen víc hřeje bez zrychlení.
 
 Rychlý náhled z ML Kitu (`RYCHLY_NAHLED = true`) už existuje; okamžitou
 odezvu řeší za cenu přepnutí z horšího překladu na lepší.
@@ -351,3 +384,39 @@ A + B + C: malé, jen Android, testovatelné JVM testy, beze změny protokolu
 a přijímačů. Podle měření z A rozhodnout o D a ladění odkladů OCR. Odklady
 jsou nejcitlivější místo (riziko překladu useknutých vět, viz PC-001) a
 vyžadují ověření při hraní.
+
+## PC-013 – Odstranění příběhového režimu
+
+Stav: rozhodnuto 26. 11. 2026, nic neimplementováno.
+
+Příběhový režim (Story, `docs/PRIBEHOVY-REZIM.md`) nepoužívá autor forku ani
+kamarád a Mac verze (PC-009) ho mít nebude. Pochází z upstreamu; dokud se
+upstream mergoval, mazání by znamenalo konflikty při každém merge. Od
+26. 11. 2026 se upstream nemerguje (fork se vyvíjí samostatně), takže to
+překážkou není.
+
+### Rozsah (přibližně podle výskytů Story/`Pribeh`/`PCQ1`)
+
+- Android: `Pribeh*.kt`, `CteciFronta.kt`, `SkladaniVet.kt`,
+  `CasovaniPribehu.kt`, přepínač režimu v UI a nastavení, Story větev
+  v `Propojeni.kt` (zjišťování podpory přijímačem); ~15 souborů v `main`,
+  ~11 JVM testů, 2 instrumentační testy.
+- Přijímače: Story pakety `PCQ1`/`PCS1`/`PCA1` v `webos/service/protocol.js`
+  a `webos/app/receiver-ui.js`, testy `test-story`; Samsung přes `tizen/sync.py`.
+- Dokumentace: `docs/PRIBEHOVY-REZIM.md`, README, ROADMAP, PC-007.
+
+### Otevřené otázky
+
+1. Přijímače: Story pakety odstranit, nebo je dál tiše ignorovat? Starší
+   verze aplikace u kamaráda by je jinak posílaly do prázdna; přepínač je ale
+   stejně vypnutý, takže stačí odstranit a vydat Android i přijímače společně.
+2. Zůstane z příběhového režimu něco užitečného pro standardní režim?
+   `SkladaniVet` (skládání nedokončených vět) souvisí s PC-001; před smazáním
+   ověřit, že standardní režim na ní nezávisí.
+3. Klíče v uložených nastaveních (zapnutý příběhový režim) po aktualizaci
+   ignorovat, ať se aplikace nerozbije.
+
+### První krok
+
+Projít výskyty (`git grep -i "pribeh\|story\|PCQ1"`) a rozdělit je na
+Story-only a sdílené se standardním režimem.

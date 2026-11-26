@@ -10,10 +10,10 @@ PlayCaption: Android aplikace (Kotlin) pro telefon/tablet, která přes Chiaki R
 
 Toto je fork `zdepodany/playcaper-app` původního `AdamRuzick4/PlayCaption-app` (AGPLv3), používaný pro autora forku a kamaráda.
 
-- `origin` = fork, `upstream` = původní repo. `master` je jen zrcadlo `upstream/master` (pouze `--ff-only`), vlastní práce se dělá **přímo na `main-fork`** (jediný vývojář, žádné pracovní větve).
+- `origin` = fork, `upstream` = původní repo. Vlastní práce se dělá **přímo na `main-fork`** (jediný vývojář, žádné pracovní větve).
+- **Upstream se od 26. 11. 2026 nemerguje**, fork se vyvíjí samostatně. `master` zůstává jen jako stará kopie upstreamu; kód z upstreamu lze mazat nebo přepisovat bez ohledu na budoucí konflikty.
 - `applicationId` (`cz.titulky.tv`) se **nesmí měnit**: aktualizace u uživatelů forku by se rozbily.
-- Fork se jmenuje **PlayCaper** (repo `playcaper-app`, `app_name` v `strings.xml`). Název a logo „PlayCaption“ jsou podle README vyhrazeny původnímu autorovi a upravené verze mají mít jiný název. Zbylé výskyty „PlayCaption“ v kódu, textech UI a dokumentaci zůstávají záměrně, aby se snadno mergoval upstream; protokolové identifikátory (`PLAYCAPTION_TV`, `cz.playcaption.overlaytest`) se nesmí měnit.
-- Aktualizace z upstreamu: `git fetch upstream && git checkout master && git merge --ff-only upstream/master && git checkout main-fork && git merge master`.
+- Fork se jmenuje **PlayCaper** (repo `playcaper-app`, `app_name` v `strings.xml`). Název a logo „PlayCaption“ jsou podle README vyhrazeny původnímu autorovi a upravené verze mají mít jiný název. Zbylé výskyty „PlayCaption“ v kódu, textech UI a dokumentaci zatím zůstávají; protokolové identifikátory (`PLAYCAPTION_TV`, `cz.playcaption.overlaytest`) se nesmí měnit.
 
 ## Příkazy
 
